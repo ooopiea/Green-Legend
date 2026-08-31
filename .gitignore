@@ -1,0 +1,10 @@
+# Office 临时锁文件
+~$*
+
+# 系统与编辑器
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 本地工具目录
+.claude/

@@ -1,0 +1,109 @@
+/* ============================================================
+   归档页（#/archive）：复盘视图——月度记录 / 日志 / 骰子 / 快照 / 终局
+   电脑端使用，与中控台同风格的紧凑表格布局
+   ============================================================ */
+
+body.view-archive { background: var(--moon-deep); }
+
+.arch-wrap {
+  display: flex; flex-direction: column; gap: 16px;
+  max-width: 1200px; margin: 0 auto; padding: 20px 24px 60px;
+}
+
+.arch-title {
+  font-family: "Noto Serif SC", serif;
+  font-size: 26px; font-weight: 800; color: var(--ink);
+  display: flex; align-items: baseline; gap: 14px;
+}
+.arch-title .sub { font-size: 14px; color: var(--slate); font-weight: 400; }
+
+/* ---------- 页签 ---------- */
+.arch-tabs { display: flex; gap: 6px; border-bottom: 2px solid var(--jade-border); }
+.arch-tab {
+  padding: 10px 22px; font-size: 15px; cursor: pointer;
+  border: 2px solid transparent; border-bottom: none;
+  border-radius: 10px 10px 0 0;
+  color: var(--slate); background: transparent;
+}
+.arch-tab:hover { color: var(--jade-deep); background: rgba(31, 138, 112, 0.06); }
+.arch-tab.active {
+  color: var(--jade-deep); font-weight: 700;
+  background: #fff; border-color: var(--jade-border);
+  position: relative; top: 2px;
+}
+
+/* ---------- 月度表格 ---------- */
+.arch-table { width: 100%; border-collapse: collapse; background: #fff; font-size: 14px; }
+.arch-table th, .arch-table td { padding: 8px 12px; border: 1px solid var(--slate-border); }
+.arch-table th {
+  background: rgba(31, 138, 112, 0.08); font-weight: 700;
+  font-family: "Noto Serif SC", serif; white-space: nowrap;
+}
+.arch-table td.num { font-variant-numeric: tabular-nums; text-align: right; }
+.arch-table td.company { font-weight: 700; white-space: nowrap; }
+.arch-table .pos { color: var(--jade-deep); }
+.arch-table .neg { color: var(--cinnabar); }
+.arch-table tr.month-head td {
+  background: rgba(184, 134, 11, 0.10); font-weight: 700;
+  font-family: "Noto Serif SC", serif;
+}
+.arch-table .note-line { font-size: 12.5px; color: var(--slate); margin: 2px 0; }
+
+/* ---------- 日志流 ---------- */
+.arch-log {
+  background: #fff; border: 1px solid var(--slate-border); border-radius: 10px;
+  padding: 14px 18px; max-height: 70vh; overflow-y: auto;
+}
+.arch-log-entry {
+  display: flex; gap: 12px; padding: 5px 0;
+  border-bottom: 1px dashed var(--slate-border);
+  font-size: 13.5px; line-height: 1.5;
+}
+.arch-log-entry:last-child { border-bottom: none; }
+.arch-log-entry .t { color: var(--slate); font-variant-numeric: tabular-nums; white-space: nowrap; font-size: 12px; }
+.arch-log-entry .k {
+  white-space: nowrap; font-size: 11.5px; padding: 1px 8px; border-radius: 999px;
+  border: 1px solid var(--slate-border); color: var(--slate); min-width: 52px; text-align: center;
+}
+.arch-log-entry.k-company .k { border-color: var(--jade-border); color: var(--jade-deep); }
+.arch-log-entry.k-government .k { border-color: var(--gold-border); color: #8a6508; }
+.arch-log-entry.k-dice .k { border-color: #6b6f9e; color: #46497a; }
+.arch-log-entry.k-risk .k, .arch-log-entry.k-rescue .k { border-color: var(--cinnabar-border); color: var(--cinnabar); }
+.arch-log-entry.k-system .k { border-color: var(--slate-border); }
+
+/* ---------- 骰子记录 ---------- */
+.dice-face {
+  display: inline-block; width: 30px; height: 30px; line-height: 30px;
+  text-align: center; border-radius: 6px; font-weight: 800;
+  background: var(--ink); color: var(--moon); font-variant-numeric: tabular-nums;
+}
+
+/* ---------- 快照列表 ---------- */
+.arch-snap {
+  display: flex; align-items: center; gap: 12px;
+  background: #fff; border: 1px solid var(--slate-border); border-radius: 10px;
+  padding: 10px 16px; margin: 6px 0;
+}
+.arch-snap .lab { flex: 1; font-weight: 600; }
+.arch-snap .at { color: var(--slate); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+
+/* ---------- 终局 ---------- */
+.arch-final-goal {
+  display: flex; gap: 14px; margin: 10px 0;
+}
+.arch-goal {
+  flex: 1; padding: 14px 18px; border-radius: 12px; text-align: center;
+  border: 2px solid var(--slate-border); background: #fff;
+}
+.arch-goal.ok { border-color: var(--jade-border); background: rgba(31, 138, 112, 0.07); }
+.arch-goal.fail { border-color: var(--cinnabar-border); background: rgba(192, 57, 43, 0.06); }
+.arch-goal .g-name { font-size: 14px; color: var(--slate); }
+.arch-goal .g-val { font-size: 30px; font-weight: 800; font-variant-numeric: tabular-nums; margin: 4px 0; }
+.arch-goal .g-mark { font-size: 18px; font-weight: 700; }
+.arch-goal.ok .g-mark { color: var(--jade-deep); }
+.arch-goal.fail .g-mark { color: var(--cinnabar); }
+
+.arch-empty {
+  text-align: center; margin-top: 10vh; color: var(--slate);
+}
+.arch-empty h2 { font-family: "Noto Serif SC", serif; color: var(--ink); }

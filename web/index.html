@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>《绿神话》课堂游戏</title>
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/control.css">
+  <link rel="stylesheet" href="css/stage.css">
+  <link rel="stylesheet" href="css/spectate.css">
+  <link rel="stylesheet" href="css/archive.css">
+</head>
+<body>
+  <div id="app"></div>
+
+  <script src="js/events.js"></script>
+  <script src="js/engine.js"></script>
+  <script src="js/ui-common.js"></script>
+  <script src="js/qr.js"></script>
+  <script src="js/ui-control.js"></script>
+  <script src="js/ui-stage.js"></script>
+  <script src="js/ui-spectate.js"></script>
+  <script src="js/ui-archive.js"></script>
+  <script>
+    /* hash 路由分发 */
+    (function () {
+      const E = GreenEngine, U = GreenUI;
+      function route() {
+        const r = U.parseHash();
+        const app = document.getElementById("app");
+        U.clear(app);
+        document.body.className = "view-" + r.path;
+        switch (r.path) {
+          case "stage":    ControlStage.mount(app); break;
+          case "spectate": ControlSpectate.mount(app, r.params); break;
+          case "archive":  ControlArchive.mount(app); break;
+          case "test":     mountTest(app); break;
+          case "control":
+          default:         ControlConsole.mount(app); break;
+        }
+      }
+      U.onRoute(route);
+
+      /* 浏览器端自检（复用 Node 断言口径的精简版） */
+      function mountTest(app) {
+        const box = U.el("div", { class: "card", style: "max-width:820px;margin:30px auto" });
+        box.appendChild(U.el("h3", { text: "浏览器端自检" }));
+        const list = U.el("div", {});
+        box.appendChild(list);
+        app.appendChild(U.el("div", { class: "topbar" },
+          U.el("span", { class: "brand", text: "绿神话 · 自检" }),
+          U.el("span", { class: "spacer" }),
+          U.el("a", { href: "#/control", text: "返回中控" })));
+        app.appendChild(box);
+
+        let pass = 0, fail = 0;
+        function t(name, fn) {
+          try { fn(); pass++; list.appendChild(U.el("div", { class: "delta-pos", text: "✓ " + name })); }
+          catch (e) { fail++; list.appendChild(U.el("div", { class: "delta-neg", text: "✗ " + name + " — " + e.message })); }
+        }
+        const EV = GreenEvents;
+        function step(m, i) { return EV.MONTHS.find(x => x.month === m).steps[i]; }
+        function C(s, id) { return E.getCompany(s, id); }
+
+        t("初始值 60/60/100", () => {
+          const s = E.createGame({});
+          if (s.companies[0].economy !== 60 || s.companies[0].ecology !== 60 || s.government.finance !== 100) throw new Error("初始值错误");
+        });
+        t("1月 D 选项结算", () => {
+          const s = E.createGame({});
+          E.settleCompanyChoice(s, step(1, 0), { A: { optionId: "m1-D" }, B: { optionId: "m1-D" }, C: { optionId: "m1-D" } });
+          if (C(s, "A").economy !== 37 || C(s, "A").ecology !== 35) throw new Error("37/35 expected");
+        });
+        t("9月救灾财政一次性 -30", () => {
+          const s = E.createGame({});
+          const r = E.settleGovernmentPolicy(s, step(9, 1), "m9-C", "");
+          if (!r.ok || s.government.finance !== 70) throw new Error("财政应为 70，实际 " + s.government.finance);
+        });
+        t("序列化往返", () => {
+          const s = E.createGame({});
+          const r = E.deserialize(E.serialize(s));
+          if (!r.ok) throw new Error(r.error);
+        });
+        t("事件数据完整：12 个月", () => {
+          if (EV.MONTHS.length !== 12) throw new Error("月份不足 12");
+        });
+        list.appendChild(U.el("p", { text: "结果：" + pass + " 通过，" + fail + " 失败" }));
+      }
+    })();
+  </script>
+</body>
+</html>

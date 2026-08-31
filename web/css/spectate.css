@@ -1,0 +1,126 @@
+/* ============================================================
+   观战页（手机 / 平板）：竖向单列，卡片式，中等字号
+   学生用手机扫码打开——窄屏优先，不依赖电脑端布局
+   ============================================================ */
+
+body.view-spectate {
+  background: linear-gradient(160deg, #14201c 0%, #1a2a25 100%);
+  color: var(--moon);
+  min-height: 100vh;
+}
+
+.spec-wrap {
+  max-width: 640px; margin: 0 auto;
+  padding: 18px 16px 40px;
+  display: flex; flex-direction: column; gap: 14px;
+}
+
+/* ---------- 页眉 ---------- */
+.spec-header {
+  display: flex; align-items: baseline; gap: 12px;
+  padding-bottom: 10px; border-bottom: 2px solid var(--jade-border);
+}
+.spec-month {
+  font-family: "Noto Serif SC", serif;
+  font-size: 40px; font-weight: 800; color: var(--gold-bright); line-height: 1;
+  white-space: nowrap;
+}
+.spec-title {
+  flex: 1; font-size: 18px; color: #9fb3ab; line-height: 1.4;
+}
+.spec-reveal-badge {
+  font-size: 14px; padding: 4px 12px; border-radius: 999px; white-space: nowrap;
+  border: 2px solid var(--gold-border); color: var(--gold-bright); font-weight: 700;
+}
+.spec-reveal-badge.hidden {
+  border-color: var(--slate-border); color: #7d8f88; font-weight: 400;
+}
+
+/* ---------- 事件卡 ---------- */
+.spec-event {
+  padding: 16px 18px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 2px solid var(--slate-border); border-radius: 14px;
+}
+.spec-event h2 {
+  margin: 0 0 6px; font-size: 22px; font-weight: 700;
+  font-family: "Noto Serif SC", serif; color: var(--gold-bright);
+}
+.spec-event .step { font-size: 16px; color: #9fb3ab; }
+.spec-event .note { font-size: 15px; color: #7d8f88; margin: 8px 0 0; }
+
+/* ---------- 企业卡 ---------- */
+.spec-company {
+  padding: 14px 16px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 2px solid var(--slate-border); border-radius: 14px;
+}
+.spec-company.danger { border-color: var(--cinnabar-border); background: rgba(192, 57, 43, 0.14); }
+.spec-company.leader { border-color: var(--gold-border); }
+.spec-company .row1 {
+  display: flex; align-items: baseline; gap: 10px;
+}
+.spec-company h3 {
+  margin: 0; font-size: 20px; font-weight: 700;
+  font-family: "Noto Serif SC", serif; flex: 1;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.spec-company .crown { font-size: 18px; }
+.spec-company .vals {
+  display: flex; gap: 18px; margin: 8px 0 4px;
+  font-variant-numeric: tabular-nums;
+}
+.spec-company .v { text-align: center; flex: 1; }
+.spec-company .v .lab { font-size: 13px; color: #9fb3ab; display: block; }
+.spec-company .v .num { font-size: 34px; font-weight: 800; line-height: 1.15; display: block; }
+.spec-company .v .num.econ { color: var(--gold-bright); }
+.spec-company .v .num.eco { color: #58c9a9; }
+.spec-company .v .num.warn { color: #ff7b6b; }
+.spec-company .assets {
+  display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px;
+}
+.spec-asset {
+  font-size: 13px; padding: 2px 10px; border-radius: 999px;
+  border: 2px dashed #55655e; color: #7d8f88;
+}
+.spec-asset.on {
+  border-style: solid; border-color: var(--jade-border);
+  color: #58c9a9; background: rgba(31, 138, 112, 0.15);
+}
+.spec-company .choice {
+  margin-top: 8px; font-size: 16px; color: var(--gold-bright); font-weight: 700;
+}
+.spec-company .choice.pending-sub { color: #7d8f88; font-weight: 400; }
+
+/* ---------- 政府财政 ---------- */
+.spec-gov {
+  padding: 12px 16px;
+  background: rgba(184, 134, 11, 0.10);
+  border: 2px solid var(--gold-border); border-radius: 14px;
+  display: flex; align-items: center; gap: 14px;
+}
+.spec-gov .lab { font-size: 16px; font-weight: 700; color: var(--gold-bright); white-space: nowrap; }
+.spec-gov .bar {
+  flex: 1; height: 22px; border-radius: 999px; overflow: hidden;
+  background: rgba(255, 255, 255, 0.10);
+}
+.spec-gov .bar-fill {
+  height: 100%; border-radius: 999px;
+  background: linear-gradient(90deg, var(--gold), var(--gold-bright));
+  transition: width 0.5s ease;
+}
+.spec-gov .bar-fill.danger { background: linear-gradient(90deg, var(--cinnabar-deep), var(--cinnabar)); }
+.spec-gov .num {
+  font-size: 28px; font-weight: 800; color: var(--gold-bright);
+  font-variant-numeric: tabular-nums; min-width: 72px; text-align: right;
+}
+.spec-gov .num.danger { color: #ff7b6b; }
+
+/* ---------- 空态 / 错误 ---------- */
+.spec-empty { text-align: center; margin-top: 12vh; }
+.spec-empty h2 { font-size: 30px; font-family: "Noto Serif SC", serif; color: var(--gold-bright); }
+.spec-empty p { font-size: 16px; color: #9fb3ab; line-height: 1.7; }
+
+.spec-footer {
+  text-align: center; font-size: 13px; color: #55655e; margin-top: 6px;
+}

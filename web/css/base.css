@@ -1,0 +1,251 @@
+/* ============================================================
+   《绿神话》基础样式：设计变量 + 通用组件
+   色彩口径：青玉绿（生态）· 鎏金（财政/奖励）· 朱砂红（风险/处罚）
+   ============================================================ */
+
+:root {
+  /* 主色：青玉绿 */
+  --jade: #1f8a70;
+  --jade-deep: #14614f;
+  --jade-soft: #e3f2ec;
+  --jade-border: #2f9d81;
+
+  /* 强调色：鎏金 */
+  --gold: #b8860b;
+  --gold-bright: #d4a017;
+  --gold-soft: #faf3e0;
+  --gold-border: #a0770a;
+
+  /* 警示色：朱砂红 */
+  --cinnabar: #c0392b;
+  --cinnabar-deep: #922b21;
+  --cinnabar-soft: #fdecea;
+  --cinnabar-border: #d95043;
+
+  /* 底色：月白 / 墨黑 */
+  --moon: #f7f9f7;
+  --moon-deep: #eef2ee;
+  --ink: #1c2320;
+  --ink-soft: #2b3530;
+
+  /* 辅助色：青灰 */
+  --slate: #6b7f78;
+  --slate-soft: #e8edea;
+  --slate-border: #b7c4be;
+
+  /* 语义 */
+  --positive: var(--jade);
+  --negative: var(--cinnabar);
+
+  --radius: 10px;
+  --radius-lg: 16px;
+  --shadow: 0 2px 10px rgba(28, 35, 32, 0.12);
+  --shadow-lg: 0 6px 24px rgba(28, 35, 32, 0.18);
+
+  font-family: "Noto Sans SC", "Microsoft YaHei", "PingFang SC", "Hiragino Sans GB", sans-serif;
+  color: var(--ink);
+}
+
+.font-serif {
+  font-family: "Noto Serif SC", "Source Han Serif SC", "SimSun", serif;
+}
+
+/* 等宽数字 */
+.num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* ---------- 通用布局 ---------- */
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--moon);
+  color: var(--ink);
+}
+
+body { font-size: 16px; line-height: 1.55; }
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: 2px solid transparent;
+  border-radius: var(--radius);
+  padding: 8px 18px;
+  font-size: 15px;
+  background: var(--jade);
+  color: #fff;
+  transition: filter 0.15s, transform 0.05s;
+}
+
+button:hover:not(:disabled) { filter: brightness(1.08); }
+button:active:not(:disabled) { transform: translateY(1px); }
+button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+button.btn-gold { background: var(--gold); }
+button.btn-danger { background: var(--cinnabar); }
+button.btn-ghost {
+  background: transparent;
+  color: var(--ink);
+  border-color: var(--slate-border);
+}
+button.btn-ghost:hover:not(:disabled) { background: var(--slate-soft); }
+button.btn-sm { padding: 4px 12px; font-size: 13px; border-width: 1px; }
+button.btn-lg { padding: 12px 28px; font-size: 18px; }
+
+input[type="text"], select, textarea {
+  font-family: inherit;
+  font-size: 15px;
+  padding: 7px 10px;
+  border: 2px solid var(--slate-border);
+  border-radius: var(--radius);
+  background: #fff;
+  color: var(--ink);
+}
+input[type="text"]:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: var(--jade);
+}
+
+/* ---------- 卡片 ---------- */
+.card {
+  background: #fff;
+  border: 2px solid var(--slate-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+  padding: 16px 20px;
+}
+.card-jade { border-color: var(--jade-border); background: var(--jade-soft); }
+.card-gold { border-color: var(--gold-border); background: var(--gold-soft); }
+.card-danger { border-color: var(--cinnabar-border); background: var(--cinnabar-soft); }
+
+/* ---------- 徽章 ---------- */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  border: 1.5px solid var(--slate-border);
+  background: var(--slate-soft);
+  color: var(--ink-soft);
+}
+.badge-jade { border-color: var(--jade-border); background: var(--jade-soft); color: var(--jade-deep); }
+.badge-gold { border-color: var(--gold-border); background: var(--gold-soft); color: var(--gold); }
+.badge-danger { border-color: var(--cinnabar-border); background: var(--cinnabar-soft); color: var(--cinnabar); }
+
+/* ---------- 数值变化 ---------- */
+.delta-pos { color: var(--jade); font-weight: 700; }
+.delta-neg { color: var(--cinnabar); font-weight: 700; }
+.delta-zero { color: var(--slate); }
+
+/* ---------- Toast ---------- */
+#toast-root {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+  pointer-events: none;
+}
+.toast {
+  background: var(--ink);
+  color: #fff;
+  padding: 10px 22px;
+  border-radius: 999px;
+  box-shadow: var(--shadow-lg);
+  font-size: 15px;
+  animation: toast-in 0.25s ease;
+}
+.toast.warn { background: var(--cinnabar); }
+.toast.ok { background: var(--jade-deep); }
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ---------- 模态框 ---------- */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 26, 23, 0.55);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.modal {
+  background: #fff;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  max-width: 640px;
+  width: 100%;
+  max-height: 86vh;
+  overflow: auto;
+  padding: 22px 26px;
+  border-top: 6px solid var(--jade);
+}
+.modal.danger { border-top-color: var(--cinnabar); }
+.modal.gold { border-top-color: var(--gold); }
+.modal h3 { margin: 0 0 12px; }
+
+/* ---------- 资产徽章 ---------- */
+.asset-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  border: 1.5px dashed var(--slate-border);
+  color: var(--slate);
+  background: #fff;
+}
+.asset-badge.on {
+  border-style: solid;
+  border-color: var(--jade-border);
+  background: var(--jade-soft);
+  color: var(--jade-deep);
+  font-weight: 600;
+}
+
+/* ---------- 滚动条（中控日志用） ---------- */
+.scroll-y { overflow-y: auto; }
+.scroll-y::-webkit-scrollbar { width: 8px; }
+.scroll-y::-webkit-scrollbar-thumb { background: var(--slate-border); border-radius: 4px; }
+
+/* ---------- 顶部导航 ---------- */
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 18px;
+  background: var(--ink);
+  color: #fff;
+}
+.topbar .brand {
+  font-family: "Noto Serif SC", "SimSun", serif;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--gold-bright);
+  letter-spacing: 2px;
+}
+.topbar a {
+  color: #cfd8d3;
+  text-decoration: none;
+  font-size: 14px;
+  padding: 4px 10px;
+  border-radius: 6px;
+}
+.topbar a:hover { background: rgba(255, 255, 255, 0.12); color: #fff; }
+.topbar a.active { background: var(--jade); color: #fff; }
+.topbar .spacer { flex: 1; }
