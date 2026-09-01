@@ -54,6 +54,14 @@
     };
   }
 
+  /* ---------- 年终颁奖（挂在 12 月末，作为终局前的最后一步） ---------- */
+  const AWARD_STEP = {
+    type: "awardCeremony",
+    id: "final-awards",
+    title: "年终颁奖",
+    note: "政府设计 3 个奖项并为三家企业颁奖（不改分值，仅叙事与复盘）",
+  };
+
   /* ---------- 12 个月流程 ---------- */
   const MONTHS = [
     /* ================ 1 月 ================ */
@@ -74,28 +82,28 @@
               key: "A",
               label: "不购买新设备",
               detail: "保持现状，省钱省事，也许是个安全的选择？",
-              cost: 0, monthly: 3, ecology: -15,
+              cost: 0, monthly: 3, ecology: -15, recurring: true,
             },
             {
               id: "m1-B",
               key: "B",
               label: "高产能高能效设备",
               detail: "最新节能科技，产能翻倍，能效惊人，环保与效益两不误！",
-              cost: -30, monthly: 5, ecology: -10,
+              cost: -30, monthly: 5, ecology: -10, recurring: true,
             },
             {
               id: "m1-C",
               key: "C",
               label: "设备升级改造",
               detail: "升级现有设备，花小钱提升产能，既节省成本，又提高效率！",
-              cost: -20, monthly: 5, ecology: -15,
+              cost: -20, monthly: 5, ecology: -15, recurring: true,
             },
             {
               id: "m1-D",
               key: "D",
               label: "超高产能低能效设备",
               detail: "购入【超高产能的猛兽设备】，产量翻3倍，但环保压力倍增，敢挑战吗？",
-              cost: -30, monthly: 7, ecology: -25,
+              cost: -30, monthly: 7, ecology: -25, recurring: true,
             },
           ],
         },
@@ -125,7 +133,7 @@
               id: "m2-B", key: "B",
               label: "进行改造",
               detail: "对建筑围护结构进行改造，提升建筑性能，但需要投入额外资金。",
-              cost: -15, monthly: 5, ecology: 0,
+              cost: -15, monthly: 5, ecology: 0, recurring: true,
             },
           ],
         },
@@ -246,14 +254,14 @@
               id: "m5-B", key: "B",
               label: "全额上网模式",
               detail: "光伏发电全部并入电网售电，企业不自用，通过售电获取收益",
-              cost: -20, monthly: 2, ecology: +10,
+              cost: -20, monthly: 2, ecology: +10, recurring: true,
               grants: { rooftopPV: true },
             },
             {
               id: "m5-C", key: "C",
               label: "自发自用，余电上网",
               detail: "企业优先使用光伏电力，剩余电力送入电网（更利于后续停电自备电力）",
-              cost: -20, monthly: 2, ecology: +10,
+              cost: -20, monthly: 2, ecology: +10, recurring: true,
               grants: { rooftopPV: true },
             },
           ],
@@ -277,7 +285,8 @@
               {
                 id: "m6-A",
                 label: "对安装光伏的企业补贴",
-                detail: "每家已安装屋顶光伏的企业经济 +2，政府财政每家 -2",
+                detail: "每家已安装屋顶光伏的企业经济 +2（此后每月 +2，属企业光伏自身收益），政府财政仅在 6 月一次性每家 -2",
+                recurring: true,
                 apply: { target: "hasRooftopPV", economy: +2, finance: -2 },
               },
               {
@@ -316,14 +325,14 @@
               id: "m7-B", key: "B",
               label: "安装单向充电桩",
               detail: "安装技术成熟的单向充电桩，为电动车提供基本充电服务",
-              cost: -20, monthly: 4, ecology: +15,
+              cost: -20, monthly: 4, ecology: +15, recurring: true,
               grants: { oneWayCharger: true },
             },
             {
               id: "m7-C", key: "C",
               label: "安装双向充电桩",
               detail: "投资安装双向充电桩，作为智能充电试点工程（11 月零碳园区资格更优）",
-              cost: -30, monthly: 4, ecology: +20,
+              cost: -30, monthly: 4, ecology: +20, recurring: true,
               grants: { twoWayCharger: true },
             },
           ],
@@ -355,7 +364,7 @@
               id: "m8-B", key: "B",
               label: "加装蓄电池",
               detail: "存储光伏发电，减少对电网的依赖，提高自用电量（仅已安装光伏企业可选）",
-              cost: -20, monthly: 4, ecology: +10,
+              cost: -20, monthly: 4, ecology: +10, recurring: true,
               grants: { battery: true },
               requires: { rooftopPV: true }, // 资格条件
             },
@@ -363,7 +372,7 @@
               id: "m8-C", key: "C",
               label: "继续安装光伏",
               detail: "继续扩展光伏系统，增加投资以提升发电能力",
-              cost: -15, monthly: 2, ecology: +5,
+              cost: -15, monthly: 2, ecology: +5, recurring: true,
               grants: { rooftopPV: true },
             },
           ],
@@ -462,7 +471,9 @@
               results.push({
                 companyId: c.id,
                 economy: hasCharger ? 0 : -3,
-                note: hasCharger ? "已有充电桩，不受油价冲击影响" : "无充电桩，承受高昂燃油费用，经济 -3",
+                stream: hasCharger ? 0 : -3, // 未装充电桩：此后每月 -3，直至 12 月
+                streamLabel: "油价冲击（无充电桩）",
+                note: hasCharger ? "已有充电桩，不受油价冲击影响" : "无充电桩，承受高昂燃油费用，经济 -3（每月）",
               });
             }
             return results;
@@ -511,27 +522,27 @@
             {
               id: "m11-R1",
               label: "加装屋顶光伏",
-              cost: -18, monthly: 2, ecology: +10,
+              cost: -18, monthly: 2, ecology: +10, recurring: true,
               grants: { rooftopPV: true },
             },
             {
               id: "m11-R2",
               label: "加装双向充电桩",
-              cost: -30, monthly: 4, ecology: +20,
+              cost: -30, monthly: 4, ecology: +20, recurring: true,
               grants: { twoWayCharger: true },
             },
             {
               id: "m11-R3",
               label: "把单向充电桩改造为双向充电桩",
               detail: "单向充电桩升级为双向充电桩（仅已装单向桩企业可选）",
-              cost: -10, monthly: 2, ecology: +5,
+              cost: -10, monthly: 2, ecology: +5, recurring: true,
               grants: { oneWayCharger: false, twoWayCharger: true },
               requires: { oneWayCharger: true },
             },
             {
               id: "m11-R4",
               label: "加装蓄电池",
-              cost: -20, monthly: 4, ecology: +10,
+              cost: -20, monthly: 4, ecology: +10, recurring: true,
               grants: { battery: true },
             },
           ],
@@ -584,17 +595,10 @@
             },
           ],
         },
+        AWARD_STEP,
       ],
     },
   ];
-
-  /* ---------- 年终颁奖 ---------- */
-  const AWARD_STEP = {
-    type: "awardCeremony",
-    id: "final-awards",
-    title: "年终颁奖",
-    note: "政府设计 3 个奖项并为三家企业颁奖（不改分值，仅叙事与复盘）",
-  };
 
   /* ---------- 政府全年行为一览（供归档页展示） ---------- */
   const GOV_SUMMARY = [

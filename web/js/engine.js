@@ -11,7 +11,7 @@
 })(typeof self !== "undefined" ? self : this, function () {
   "use strict";
 
-  const VERSION = "1.0.0";
+  const VERSION = "1.1.0";
   const SAVE_KEY = "greentales-save";
   const SNAPSHOT_LIMIT = 30;
   const RISK_LINE = 20; // 生态/经济 ≤ 20 触发风险规则
@@ -44,6 +44,7 @@
             twoWayCharger: false,
           },
           totalInvestment: 0,
+          streams: [], // 持续收益流 Stream[]：{id, label, amount, fromMonth}
           history: [], // MonthlyRecord[]
         };
       }),
@@ -55,6 +56,7 @@
       },
       pendingDecisions: {}, // companyId -> { optionId, retrofitId? } | null（companyChoice 进行中）
       revealed: false, // 当前 companyChoice 是否已统一揭示
+      stepSettled: null, // 两阶段结算：政府/掷骰/自动/资金结算完成待推进 { stepId, skip }
       dice: [], // DiceLog[]
       logs: [], // LogEntry[]
       snapshots: [], // Snapshot[]
@@ -118,6 +120,39 @@
       c.history.push(rec);
     }
     return rec;
+  }
+
+  /* ============ 持续收益流 ============ */
+
+  /* 注册一条每月持续计入的收益流：当月已由选择结算一次性计入，
+     次月起每月月初由 settleMonthOpening 自动结算（持续到 12 月） */
+  function registerStream(state, companyId, id, label, amount) {
+    const c = getCompany(state, companyId);
+    if (!c || !amount) return; // 金额为 0 不注册（如已装充电桩企业的油价冲击）
+    if (!c.streams) c.streams = [];
+    for (var i = 0; i < c.streams.length; i++) {
+      if (c.streams[i].id === id) return; // 按 id 去重（撤销后重做不重复注册）
+    }
+    c.streams.push({ id: id, label: label, amount: amount, fromMonth: state.month });
+  }
+
+  /* 月初结算：换月进入新的一月后调用。
+     先 ensureMonthlyRecord（economyStart = 上月末值），再将各有效流合计计入当月。 */
+  function settleMonthOpening(state) {
+    markPreSettle(state);
+    for (const c of state.companies) {
+      const active = (c.streams || []).filter(function (s) { return s.fromMonth < state.month; });
+      if (!active.length) continue;
+      let sum = 0;
+      const parts = [];
+      for (const s of active) { sum += s.amount; parts.push(s.label + " " + fmtDelta(s.amount)); }
+      const rec = ensureMonthlyRecord(state, c.id);
+      c.economy += sum;
+      rec.monthlyIncome += sum;
+      rec.notes.push("持续收益：" + parts.join("、") + " = " + fmtDelta(sum));
+      log(state, "settle", "【" + state.month + "月】" + c.name + " 月初持续收益 " + fmtDelta(sum) + "（" + parts.join("、") + "）");
+    }
+    checkRisks(state);
   }
 
   /* ============ 风险规则 ============ */
@@ -207,6 +242,10 @@
         c.economy += opt.monthly;
         rec.monthlyIncome += opt.monthly;
       }
+      // 持续收益流：次月起每月月初自动计入（至 12 月）
+      if (opt.monthly && opt.recurring) {
+        registerStream(state, cid, opt.id, opt.label, opt.monthly);
+      }
       // 生态变化
       if (opt.ecology) {
         c.ecology += opt.ecology;
@@ -268,6 +307,7 @@
         rec.investment += r.cost;
       }
       if (r.monthly) { c.economy += r.monthly; rec.monthlyIncome += r.monthly; }
+      if (r.monthly && r.recurring) registerStream(state, cid, r.id, r.label, r.monthly);
       if (r.ecology) { c.ecology += r.ecology; rec.ecologyDelta += r.ecology; }
       if (r.grants) {
         for (const k in r.grants) {
@@ -339,6 +379,10 @@
       if (apply.economy) {
         c.economy += apply.economy;
         rec.govDelta += apply.economy;
+      }
+      // 政府补贴类持续收益（6 月）：企业侧逐月计入；财政仍只在决策当月一次性扣减
+      if (opt.recurring && apply.economy) {
+        registerStream(state, cid, opt.id, opt.label, apply.economy);
       }
       if (perCompanyFinance) {
         state.government.finance += apply.finance; // 每家单独扣
@@ -553,6 +597,10 @@
         rec.monthlyIncome += r.economy;
         rec.notes.push(step.title + " " + fmtDelta(r.economy));
       }
+      // 自动事件持续流（10 月油价：未装充电桩企业每月 -3，至 12 月）
+      if (r.stream) {
+        registerStream(state, c.id, step.id, r.streamLabel || step.title, r.stream);
+      }
       if (r.ecology) {
         c.ecology += r.ecology;
         const rec = ensureMonthlyRecord(state, c.id);
@@ -640,6 +688,7 @@
       companies: state.companies.map(function (c) {
         return {
           id: c.id, name: c.name, economy: c.economy, ecology: c.ecology,
+          streamSum: (c.streams || []).reduce(function (s, st) { return s + (st.fromMonth < state.month ? st.amount : 0); }, 0),
           assets: ASSET_KEYS.filter(function (k) { return c.assets[k]; }),
           submitted: !!(state.pendingDecisions && state.pendingDecisions[c.id]),
           revealedChoice: state.revealed && state.pendingDecisions[c.id]
@@ -692,6 +741,7 @@
     rollDie: rollDie,
     settleDiceResults: settleDiceResults,
     settleAutoEvent: settleAutoEvent,
+    settleMonthOpening: settleMonthOpening,
     computeFinal: computeFinal,
     undo: undo,
     serialize: serialize,
