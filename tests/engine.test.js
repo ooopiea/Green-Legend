@@ -361,5 +361,89 @@ test("publicSnapshot：揭示前不含选择，揭示后含 label", () => {
   assert.ok(pub2.revealedLabels.A.indexOf("高产能") >= 0);
 });
 
+console.log("== 持续收益流（v1.1.0） ==");
+test("recurring 选项注册收益流：当月一次性计入，次月起月初结算", () => {
+  const s = newGame();
+  E.settleCompanyChoice(s, getStep(s, 1, 0), {
+    A: { optionId: "m1-D" }, B: { optionId: "m1-B" }, C: { optionId: "m1-C" },
+  });
+  assert.strictEqual(getC(s, "A").economy, 37); // 60-30+7（当月一次性）
+  assert.strictEqual(getC(s, "A").streams.length, 1);
+  assert.strictEqual(getC(s, "A").streams[0].id, "m1-D");
+  assert.strictEqual(getC(s, "A").streams[0].amount, 7);
+  assert.strictEqual(getC(s, "A").streams[0].fromMonth, 1);
+  // 换月：月初结算计入当月
+  s.month = 2; s.stepIndex = 0;
+  E.settleMonthOpening(s);
+  assert.strictEqual(getC(s, "A").economy, 44); // 37+7
+  const rec2 = getC(s, "A").history[1];
+  assert.strictEqual(rec2.economyStart, 37); // economyStart = 上月末
+  assert.strictEqual(rec2.monthlyIncome, 7);
+  // 重复结算同一步不重复注册（按 id 去重；经济重复计入属调用方误用，此处仅验证流不重复）
+  E.settleCompanyChoice(s, getStep(s, 1, 0), { A: { optionId: "m1-D" } });
+  assert.strictEqual(getC(s, "A").streams.length, 1);
+});
+
+test("6 月补贴：企业逐月 +2 流，财政仅当月一次性每家 -2", () => {
+  const s = newGame();
+  for (const c of s.companies) c.assets.rooftopPV = c.id !== "A";
+  s.month = 6; s.stepIndex = 0;
+  E.settleGovernmentPolicy(s, getStep(s, 6, 0), "m6-A", "");
+  assert.strictEqual(s.government.finance, 96); // -2 × 2 家，一次性
+  assert.ok(getC(s, "B").streams.some(x => x.id === "m6-A" && x.amount === 2));
+  assert.ok(!getC(s, "A").streams.some(x => x.id === "m6-A")); // 无光伏不注册
+  s.month = 7; s.stepIndex = 0;
+  E.settleMonthOpening(s);
+  assert.strictEqual(getC(s, "B").economy, 64); // 60+2(6月当月)+2(7月流)
+  assert.strictEqual(s.government.finance, 96); // 财政不再扣
+});
+
+test("10 月油价：无桩注册 -3 流，有桩不注册", () => {
+  const s = newGame();
+  getC(s, "A").assets.rooftopPV = false;
+  getC(s, "B").assets.oneWayCharger = true;
+  getC(s, "C").assets.twoWayCharger = true;
+  s.month = 10; s.stepIndex = 0;
+  E.settleAutoEvent(s, getStep(s, 10, 0));
+  assert.strictEqual(getC(s, "A").economy, 57); // 60-3 当月
+  assert.ok(getC(s, "A").streams.some(x => x.id === "m10-oil" && x.amount === -3));
+  assert.strictEqual(getC(s, "B").streams.length, 0);
+  assert.strictEqual(getC(s, "C").streams.length, 0);
+  s.month = 11; s.stepIndex = 0;
+  E.settleMonthOpening(s);
+  assert.strictEqual(getC(s, "A").economy, 54); // 57-3
+  assert.strictEqual(getC(s, "B").economy, 60);
+});
+
+test("3 月团建 / 12 月雾霾为一次性：不注册流", () => {
+  const s = newGame();
+  E.settleCompanyChoice(s, getStep(s, 3, 0), { A: { optionId: "m3-B" }, B: { optionId: "m3-C" }, C: { optionId: "m3-C" } });
+  assert.ok(s.companies.every(c => c.streams.length === 0));
+  s.month = 12; s.stepIndex = 0;
+  E.settleCompanyChoice(s, getStep(s, 12, 0), { A: { optionId: "m12-A" }, B: { optionId: "m12-B" }, C: { optionId: "m12-B" } });
+  assert.ok(s.companies.every(c => c.streams.length === 0));
+});
+
+test("撤销可回滚月初结算（快照由换月方负责）", () => {
+  const s = newGame();
+  E.settleCompanyChoice(s, getStep(s, 1, 0), { A: { optionId: "m1-D" }, B: { optionId: "m1-B" }, C: { optionId: "m1-C" } });
+  E.snapshot(s, "M1 月末（推进下月前）"); // 中控换月前快照
+  s.month = 2; s.stepIndex = 0;
+  E.settleMonthOpening(s);
+  assert.strictEqual(getC(s, "A").economy, 44);
+  const r = E.undo(s);
+  assert.ok(r.ok);
+  assert.strictEqual(r.state.month, 1);
+  assert.strictEqual(E.getCompany(r.state, "A").economy, 37);
+});
+
+test("publicSnapshot 含 streamSum", () => {
+  const s = newGame();
+  E.settleCompanyChoice(s, getStep(s, 1, 0), { A: { optionId: "m1-D" }, B: { optionId: "m1-B" }, C: { optionId: "m1-C" } });
+  s.month = 3; // 当月(3)不计入，仅 fromMonth<3 的流
+  const pub = E.publicSnapshot(s, EV);
+  assert.strictEqual(pub.companies[0].streamSum, 7);
+});
+
 console.log("\n== 结果：" + passed + " 通过，" + failed + " 失败 ==");
 process.exit(failed ? 1 : 0);
