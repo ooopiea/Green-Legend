@@ -60,54 +60,38 @@
   border: 1.5px dashed #55655e; white-space: nowrap;
 }
 
-/* ---------- 主画面：场景 + 题面 ---------- */
-.th-stage { position: relative; flex: 1 1 auto; min-height: 0; overflow: hidden; }
-.th-scene { position: absolute; inset: 0; }
-.th-scene svg { width: 100%; height: 100%; display: block; }
-.th-scene::after {
-  /* 中央渐晕遮罩：题面居中后，中部与底部都压暗保证叠字可读 */
-  content: ""; position: absolute; inset: 0;
+/* ---------- 主画面：幻灯片画箱（16:9 信箱化） ---------- */
+.th-slidebox {
+  position: relative; flex: 1 1 auto; min-height: 0; overflow: hidden;
   background:
-    radial-gradient(ellipse 72% 56% at 50% 46%, rgba(14, 20, 17, 0.55) 0%, rgba(14, 20, 17, 0.18) 62%, rgba(14, 20, 17, 0) 100%),
-    linear-gradient(180deg,
-      rgba(18, 24, 21, 0.3) 0%,
-      rgba(18, 24, 21, 0) 24%,
-      rgba(18, 24, 21, 0.08) 60%,
-      rgba(18, 24, 21, 0.66) 100%);
-  pointer-events: none;
+    radial-gradient(ellipse 80% 60% at 50% 40%, rgba(31, 138, 112, 0.10), transparent 70%),
+    #101815;
 }
-.scene-fade { animation: scene-fade 0.5s ease; }
+.th-slide-scale {
+  position: absolute; left: 50%; top: 50%;
+  width: 1280px; height: 720px;
+  transform: translate(-50%, -50%) scale(1); /* 播放器按视口改写 scale */
+  transform-origin: center;
+}
+.th-slide-scale .sl-canvas { box-shadow: 0 12px 70px rgba(0, 0, 0, 0.55); }
+.th-slide-scale.enter { animation: slide-enter 0.45s ease; }
+.th-slide-scale.leave { animation: slide-leave 0.45s ease forwards; }
 
-/* 题面叠层（主画面正中——月度字幕是视觉重心，SVG 退为背景） */
-.th-copy {
-  position: absolute; left: 0; right: 0; top: 50%;
-  transform: translateY(-50%);
-  text-align: center; padding: 0 8%;
-  pointer-events: none;
-  z-index: 2;
+/* 无存档等待幕（盖在暗显的页面上） */
+.th-veil {
+  position: absolute; inset: 0; z-index: 6;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  background: rgba(14, 20, 17, 0.66);
+  text-align: center; pointer-events: none;
 }
-.th-copy-kicker {
-  display: inline-block;
-  font-size: 21px; padding: 4px 22px; border-radius: 999px;
-  border: 2px solid var(--jade-border); color: #58c9a9;
-  margin-bottom: 16px; letter-spacing: 2px;
-  background: rgba(18, 24, 21, 0.72);
-}
-.th-copy-title {
+.th-veil h2 {
   font-family: "Noto Serif SC", serif;
-  font-size: 58px; font-weight: 800; color: var(--moon);
-  margin: 0 0 16px; text-shadow: 0 2px 16px rgba(0, 0, 0, 0.6);
+  font-size: 60px; color: var(--gold-bright); margin: 0 0 14px;
 }
-.th-copy-prompt {
-  font-size: 33px; line-height: 1.55; margin: 0 auto;
-  max-width: 1150px;
-  color: rgba(247, 249, 247, 0.96);
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.65);
-  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
-}
+.th-veil p { font-size: 24px; color: #9fb3ab; margin: 0; letter-spacing: 1px; }
 
-/* 浮动结算数字层 */
-.th-floats { position: absolute; inset: 0; pointer-events: none; z-index: 5; }
+/* 浮动结算数字层（画箱内、不随缩放） */
+.th-floats { position: absolute; inset: 0; pointer-events: none; z-index: 8; }
 .float-tag {
   position: absolute; left: 50%;
   display: flex; flex-direction: column; gap: 2px;
@@ -217,19 +201,7 @@
 .th-final-gov .ok { color: #58c9a9; font-weight: 800; }
 .th-final-gov .no { color: #ff7b6b; font-weight: 800; }
 
-/* 空态等待幕 */
-.th-empty { position: relative; height: 100vh; overflow: hidden; }
-.th-empty .th-scene { position: absolute; inset: 0; }
-.th-empty-copy {
-  position: absolute; left: 0; right: 0; top: 34%; text-align: center;
-}
-.th-empty-copy h2 {
-  font-family: "Noto Serif SC", serif;
-  font-size: 64px; color: var(--gold-bright); margin: 0 0 12px;
-}
-.th-empty-copy p { font-size: 24px; color: #9fb3ab; margin: 0; }
-
-/* ---------- 场景动画（SVG 内 class）---------- */
+/* ---------- 场景动画（SVG 内 class，观战页沿用 GreenScenes）---------- */
 .th-scene svg, .th-empty svg { transform-box: view-box; }
 .th-scene svg g, .th-empty svg g { transform-box: fill-box; transform-origin: center; }
 
@@ -344,6 +316,14 @@
 @keyframes scene-fade {
   from { opacity: 0; }
   to { opacity: 1; }
+}
+@keyframes slide-enter {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes slide-leave {
+  from { opacity: 1; }
+  to { opacity: 0; }
 }
 
 /* ---------- 无障碍：减少动效 ---------- */
