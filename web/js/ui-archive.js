@@ -121,7 +121,7 @@
     const box = U.el("div", {});
     box.appendChild(table);
     box.appendChild(U.el("p", { style: "font-size:12.5px;color:var(--slate);margin-top:8px",
-      text: "口径：当月经济变动 = 经营收入 + 事件损益；政策性收支 = 补贴/救助/奖惩等政府转移；月末值为下月起始值，末月为当前值。" }));
+      text: "口径：当月经济变动 = 月初持续收益（往月购置设备/政策的逐月收益，生效至 12 月）+ 本月经营收入与事件损益；政策性收支 = 补贴/救助/奖惩等政府转移；月末值为下月起始值，末月为当前值。" }));
     return box;
   }
 
