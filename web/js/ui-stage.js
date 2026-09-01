@@ -162,17 +162,20 @@
       lastCompsSig = csSig;
       U.clear(hud.comps);
       state.companies.forEach(c => {
+        // 经济/生态双值显示（如 35/45），不再只显示总和
         hud.comps.appendChild(U.el("span", { class: "th-comp", "data-id": c.id },
-          c.name + " ", U.el("b", { text: String(c.economy + c.ecology) })));
+          c.name + " ",
+          U.el("b", { class: "cv-e", text: String(c.economy) }), "/",
+          U.el("b", { class: "cv-c", text: String(c.ecology) })));
       });
     }
     state.companies.forEach(c => {
       const el = hud.comps.querySelector('[data-id="' + c.id + '"]');
       if (!el) return;
-      const total = c.economy + c.ecology;
       el.classList.toggle("danger", c.economy <= 20 || c.ecology <= 20);
-      el.classList.toggle("leader", total === best);
-      tweenNumber(el.querySelector("b"), "comp-" + c.id, total);
+      el.classList.toggle("leader", (c.economy + c.ecology) === best);
+      tweenNumber(el.querySelector(".cv-e"), "comp-e-" + c.id, c.economy);
+      tweenNumber(el.querySelector(".cv-c"), "comp-c-" + c.id, c.ecology);
     });
     // 风险提示
     const risky = state.companies.filter(c => c.economy <= 20 || c.ecology <= 20);
@@ -248,29 +251,6 @@
   };
   const OPT_ICON_BY_MONTH = { 1: "machine", 2: "envelope", 3: "seedling", 5: "pv", 7: "chargerOneway", 8: "battery", 11: "doc", 12: "smog" };
 
-  /* 方向暗示：数值符号推导（down 优先口径），11 月零效果选项走覆盖表 */
-  const HINT_OVERRIDES = {
-    "m11-A": [{ dim: "资格", dir: "flat", text: "需已具备 2 项资格资产" }],
-    "m11-B": [{ dim: "资格", dir: "flat", text: "先加装一项设备再申报" }],
-    "m11-C": [{ dim: "资格", dir: "flat", text: "放弃试点申报" }],
-  };
-
-  function optionHints(opt) {
-    if (HINT_OVERRIDES[opt.id]) return HINT_OVERRIDES[opt.id];
-    const out = [];
-    const cost = opt.cost || 0, monthly = opt.monthly || 0, eco = opt.ecology || 0;
-    if (cost < 0 || monthly < 0) out.push({ dim: "经济", dir: "down" });
-    else if (monthly > 0) out.push({ dim: "经济", dir: "up" });
-    if (eco > 0) out.push({ dim: "生态", dir: "up" });
-    else if (eco < 0) out.push({ dim: "生态", dir: "down" });
-    if (!out.length) out.push({ dim: "维持现状", dir: "flat" });
-    if (opt.requires) {
-      const names = Object.keys(opt.requires).map(k => (EV.ASSET_META[k] || {}).name || k);
-      out.push({ dim: "资格", dir: "flat", text: "需" + names.join("/") });
-    }
-    return out;
-  }
-
   function iconHtml(name) {
     return (SC.ICON && SC.ICON[name]) || SC.ICON.gov || "";
   }
@@ -296,7 +276,7 @@
     else deckEl.appendChild(U.el("div", { class: "th-deck-note", text: step.note || "进行中……" }));
   }
 
-  /* 企业选项大卡 */
+  /* 企业选项大卡（只显键字母 + 图标 + 标签；不显示效果方向暗示） */
   function buildChoiceDeck(state, step) {
     const track = U.el("div", { class: "th-deck-track" });
     step.options.forEach((o, i) => {
@@ -311,11 +291,6 @@
           U.el("span", { class: "th-card-key", text: o.key || String.fromCharCode(65 + i) }),
           U.el("span", { class: "th-card-icon", html: iconHtml(OPT_ICON[o.id] || OPT_ICON_BY_MONTH[state.month] || "factory") })),
         U.el("div", { class: "th-card-label", text: o.label }),
-        U.el("div", { class: "th-card-hints" },
-          optionHints(o).map(h => U.el("span", {
-            class: "hint " + h.dir,
-            text: h.text || (h.dim + (h.dir === "up" ? " ↑" : h.dir === "down" ? " ↓" : "")),
-          }))),
         U.el("div", { class: "th-card-picks" }, picks)));
     });
     const n = Object.keys(state.pendingDecisions || {}).filter(k => state.pendingDecisions[k] && state.pendingDecisions[k].optionId).length;
@@ -333,9 +308,7 @@
           U.el("div", { class: "th-card-head" },
             U.el("span", { class: "th-card-key", text: String(i + 1) }),
             U.el("span", { class: "th-card-icon", html: iconHtml("coin") })),
-          U.el("div", { class: "th-card-label", text: t.label }),
-          U.el("div", { class: "th-card-hints" },
-            U.el("span", { class: "hint " + (t.amount > 0 ? "up" : "flat"), text: "企业经济 +" + t.amount })),
+          U.el("div", { class: "th-card-label", text: t.label + "（+" + t.amount + "）" }),
           U.el("div", { class: "th-card-picks" })));
       });
       return U.el("div", {}, track,
