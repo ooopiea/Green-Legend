@@ -1,0 +1,277 @@
+/* ============================================================
+   《绿神话》舞台幻灯片：PPT 42 页复刻
+   1280×720 固定设计画布（播放器负责 transform:scale 适配）
+   ============================================================ */
+
+.sl-canvas {
+  width: 1280px;
+  height: 720px;
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse 900px 500px at 85% -10%, rgba(31, 138, 112, 0.10), transparent 60%),
+    linear-gradient(160deg, #fbfcfa 0%, #f1f6f1 55%, #e6f0e9 100%);
+  color: var(--ink);
+  font-family: "Noto Sans SC", "Microsoft YaHei", "PingFang SC", sans-serif;
+}
+
+/* 课前 1-8 页：加青玉描边框，与游戏页区分 */
+.sl-canvas.sl-pre { box-shadow: inset 0 0 0 10px rgba(31, 138, 112, 0.22), inset 0 0 0 14px rgba(212, 160, 23, 0.35); }
+
+/* 同页重渲染时由播放器加 no-anim 抑制动画 */
+.sl-canvas.no-anim *, .sl-canvas.no-anim { animation: none !important; transition: none !important; }
+
+/* 【】高亮 */
+.sl-hl { color: var(--jade-deep); font-weight: 700; background: var(--jade-soft); border-radius: 6px; padding: 0 4px; }
+
+/* ---------- 课前页 ---------- */
+
+.sl-titlepage {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 26px;
+}
+.sl-logo { width: 210px; }
+.sl-gametitle {
+  font-size: 88px; font-weight: 900; letter-spacing: 10px; color: var(--jade-deep);
+  text-shadow: 0 3px 0 rgba(212, 160, 23, 0.35);
+}
+.sl-gametitle-md {
+  font-size: 66px; font-weight: 900; letter-spacing: 14px; color: var(--gold);
+}
+
+.sl-sect-head { position: absolute; top: 0; left: 0; right: 0; text-align: center; }
+.sl-sect-banner {
+  margin-top: 26px; font-size: 34px; color: var(--slate); letter-spacing: 4px; font-weight: 600;
+}
+.sl-sect-title {
+  font-size: 72px; font-weight: 900; color: var(--jade-deep); letter-spacing: 8px; margin-top: 2px;
+}
+
+.sl-tab {
+  position: absolute; left: 0; top: 150px;
+  writing-mode: vertical-lr; letter-spacing: 16px;
+  background: var(--jade); color: #fff;
+  font-size: 44px; font-weight: 800;
+  padding: 26px 14px 30px; border-radius: 0 18px 18px 0;
+  box-shadow: var(--shadow);
+}
+
+.sl-body-wide {
+  position: absolute; left: 74px; right: 74px; top: 250px;
+  font-size: 30px; line-height: 2.0;
+}
+.sl-flowbody { top: 180px; }
+.sl-body-half {
+  position: absolute; left: 96px; width: 560px; top: 240px;
+  font-size: 29px; line-height: 1.95;
+}
+
+.sl-logo-sm { position: absolute; width: 108px; }
+
+/* 指标卡 */
+.sl-mcards { position: absolute; left: 90px; right: 90px; top: 210px; display: grid; grid-template-columns: 1fr 1fr; gap: 34px; }
+.sl-mcards3 { position: absolute; left: 56px; right: 56px; top: 220px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 22px; }
+.sl-mcard {
+  background: rgba(255, 255, 255, 0.86); border: 3px solid var(--slate-border); border-radius: 20px;
+  box-shadow: var(--shadow); padding: 22px 26px; font-size: 24px; line-height: 1.8; text-align: center;
+}
+.sl-mcard .sl-micon { width: 118px; margin-bottom: 6px; }
+.sl-mcard .sl-mname { font-size: 44px; font-weight: 800; color: var(--jade-deep); margin-bottom: 10px; }
+
+/* ---------- 游戏页头部 ---------- */
+
+.sl-month {
+  position: absolute; top: 18px; left: 26px; z-index: 5;
+  background: linear-gradient(160deg, var(--jade), var(--jade-deep));
+  color: #fff; font-size: 40px; font-weight: 800;
+  padding: 10px 30px; border-radius: 16px;
+  box-shadow: var(--shadow); letter-spacing: 2px;
+  font-family: "Noto Serif SC", "SimSun", serif;
+}
+.sl-prompt {
+  position: absolute; top: 22px; left: 178px; right: 44px;
+  font-size: 34px; line-height: 1.5; font-weight: 700; color: var(--ink);
+  transition: opacity 0.4s;
+}
+.sl-prompt.dim { opacity: 0.5; font-weight: 600; }
+
+.sl-big-title {
+  position: absolute; top: 26px; left: 170px; right: 60px;
+  font-size: 72px; font-weight: 900; color: var(--cinnabar-deep);
+  text-shadow: 0 2px 0 rgba(212, 160, 23, 0.4);
+}
+.sl-big-title.sm { font-size: 56px; color: var(--cinnabar-deep); }
+
+/* ---------- 题面选项 ---------- */
+
+.sl-opts { position: absolute; left: 60px; right: 60px; top: 172px; display: flex; flex-direction: column; gap: 16px; }
+.sl-opts.narrow { right: 560px; }
+.sl-opts.gov { top: 210px; max-width: 760px; }
+.sl-opt {
+  display: flex; align-items: flex-start; gap: 18px;
+  background: rgba(255, 255, 255, 0.82); border: 2.5px solid var(--slate-border);
+  border-radius: 16px; padding: 12px 22px; box-shadow: var(--shadow);
+}
+.sl-key {
+  flex: none; width: 54px; height: 54px; border-radius: 50%;
+  background: var(--jade-soft); border: 3px solid var(--jade-border); color: var(--jade-deep);
+  font-size: 28px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center;
+}
+.sl-key.sm { width: 42px; height: 42px; font-size: 22px; }
+.sl-opt-label { font-size: 28px; font-weight: 700; line-height: 1.4; }
+.sl-opt-detail { font-size: 21px; color: var(--slate); line-height: 1.5; margin-top: 2px; }
+
+/* 提交状态芯片 */
+.sl-chips { position: absolute; left: 60px; bottom: 24px; display: flex; gap: 14px; flex-wrap: wrap; max-width: 1100px; }
+.sl-chips.dice { left: 60px; bottom: 56px; }
+.sl-chip {
+  font-size: 24px; padding: 8px 24px; border-radius: 999px;
+  background: rgba(255, 255, 255, 0.85); border: 2.5px dashed var(--slate-border); color: var(--slate);
+  font-weight: 600; box-shadow: var(--shadow);
+}
+.sl-chip.on { border-style: solid; border-color: var(--jade-border); background: var(--jade-soft); color: var(--jade-deep); }
+.sl-chip.warn { border-style: solid; border-color: var(--cinnabar-border); background: var(--cinnabar-soft); color: var(--cinnabar); }
+.sl-chip.gold { border-style: solid; border-color: var(--gold-border); background: var(--gold-soft); color: var(--gold); }
+.sl-chip.timer { border-style: solid; border-color: var(--gold-border); color: var(--gold-deep, var(--gold)); }
+
+/* ---------- 答案表 ---------- */
+
+.sl-rows { position: absolute; left: 60px; right: 60px; top: 168px; display: flex; flex-direction: column; gap: 12px; }
+.sl-rows.left { left: 60px; right: 480px; }
+.sl-rows.dense { position: static; }
+/* 36 页：题面+横幅之下 5 行紧凑表 */
+.sl-rows.m11 { top: 170px; gap: 8px; }
+.sl-rows.m11 .sl-row { padding: 9px 18px; }
+.sl-rows.m11 .sl-rowhead { padding: 0 18px; font-size: 21px; }
+.sl-rows.m11 .sl-row-name { font-size: 24px; }
+.sl-rows.m11 .sl-ic { width: 36px; height: 36px; }
+.sl-rows.m11 .sl-num { font-size: 30px; }
+.sl-row {
+  display: grid; grid-template-columns: 1fr 185px 235px 185px; align-items: center; gap: 8px;
+  background: rgba(255, 255, 255, 0.86); border: 2.5px solid var(--slate-border); border-radius: 14px;
+  padding: 14px 20px; box-shadow: var(--shadow);
+}
+.sl-rows.left .sl-row, .sl-rows.dense .sl-row { grid-template-columns: 1fr 220px; }
+.sl-rowhead {
+  background: transparent; border: none; box-shadow: none; padding: 0 20px;
+  font-size: 23px; color: var(--slate); font-weight: 700;
+}
+.sl-rowhead .sl-row-cell { text-align: center; }
+.sl-row.lit { border-color: var(--jade-border); }
+.sl-row.picked-row { border-color: var(--gold-border); background: var(--gold-soft); }
+.sl-row-label { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.sl-row-name { font-size: 26px; font-weight: 700; }
+.sl-row-cell { display: flex; justify-content: center; align-items: center; gap: 6px; }
+
+/* 数值格 */
+.sl-numwrap { display: inline-flex; align-items: center; gap: 8px; }
+.sl-num { font-size: 40px; font-weight: 800; font-variant-numeric: tabular-nums; opacity: 0.32; transition: opacity 0.5s; }
+.sl-num.pos { color: var(--jade); }
+.sl-num.neg { color: var(--cinnabar); }
+.sl-num.zero { color: var(--slate); font-size: 30px; font-weight: 600; }
+.sl-num.lit { opacity: 1; animation: sl-pop 0.5s ease; }
+.sl-ic { width: 46px; height: 46px; object-fit: contain; }
+.sl-mbadge {
+  font-size: 19px; font-weight: 700; color: var(--gold-deep, #8a6608);
+  background: var(--gold-soft); border: 2px solid var(--gold-border);
+  border-radius: 999px; padding: 2px 10px; white-space: nowrap;
+}
+@keyframes sl-pop {
+  0% { transform: scale(0.6); }
+  60% { transform: scale(1.18); }
+  100% { transform: scale(1); }
+}
+
+/* 选项被选徽章 */
+.sl-picks { display: inline-flex; gap: 8px; margin-left: auto; }
+.sl-pick {
+  font-size: 21px; font-weight: 700; color: var(--gold-deep, #8a6608);
+  background: var(--gold-soft); border: 2px solid var(--gold-border); border-radius: 999px; padding: 3px 14px;
+  animation: sl-pop 0.45s ease;
+}
+
+/* 横幅与提示 */
+.sl-banner {
+  position: absolute; left: 60px; right: 60px; top: 128px;
+  background: var(--gold-soft); border: 2.5px solid var(--gold-border); border-radius: 12px;
+  color: var(--gold-deep, #8a6608); font-size: 25px; font-weight: 700; text-align: center; padding: 10px 16px;
+}
+.sl-center-note {
+  position: absolute; left: 0; right: 0; bottom: 26px; text-align: center;
+  font-size: 26px; color: var(--slate); font-weight: 600; letter-spacing: 2px;
+}
+.sl-note { position: absolute; left: 60px; bottom: 108px; font-size: 22px; color: var(--slate); line-height: 1.6; max-width: 640px; }
+
+.sl-img { position: absolute; border-radius: 14px; box-shadow: var(--shadow-lg); object-fit: cover; z-index: 1; }
+
+/* ---------- 政府答案/生态奖惩 ---------- */
+
+.sl-ecoblocks { position: absolute; left: 70px; right: 470px; top: 186px; display: flex; flex-direction: column; gap: 18px; }
+.sl-ecoblock {
+  background: rgba(255, 255, 255, 0.86); border: 2.5px solid var(--slate-border); border-radius: 18px;
+  padding: 18px 26px; box-shadow: var(--shadow);
+}
+.sl-eco-block-sep { height: 2px; background: var(--slate-border); opacity: 0.5; }
+.sl-eco-title { font-size: 28px; font-weight: 700; margin-bottom: 12px; }
+.sl-eco-chips { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }
+.sl-orb {
+  display: inline-flex; align-items: center; gap: 10px;
+  border: 2.5px solid var(--slate-border); border-radius: 14px; padding: 8px 18px;
+  background: rgba(255, 255, 255, 0.9); position: relative;
+}
+.sl-orb.picked { border-color: var(--gold-border); background: var(--gold-soft); box-shadow: 0 0 0 4px rgba(212, 160, 23, 0.25); }
+.sl-orb-txt { font-size: 21px; color: var(--slate); font-weight: 600; }
+.sl-orb .sl-ic { width: 38px; height: 38px; }
+.sl-eco-who { margin-top: 12px; font-size: 24px; font-weight: 700; }
+.sl-eco-who.neg { color: var(--cinnabar); }
+.sl-eco-who.pos { color: var(--jade-deep); }
+
+/* 4 月答案两栏 */
+.sl-m4wrap { position: absolute; left: 60px; right: 60px; top: 150px; display: grid; grid-template-columns: 1fr 1.4fr; gap: 28px; }
+.sl-m4-col {
+  background: rgba(255, 255, 255, 0.82); border: 2.5px solid var(--slate-border); border-radius: 18px;
+  padding: 18px 24px; box-shadow: var(--shadow);
+}
+.sl-m4-col .sl-eco-title { margin-bottom: 14px; }
+
+/* 试点资金档位 */
+.sl-tierrow { position: absolute; left: 0; right: 0; top: 296px; display: flex; justify-content: center; gap: 16px; align-items: center; }
+.sl-orb.tier { flex-direction: column; gap: 6px; padding: 14px 26px; min-width: 172px; align-items: center; }
+.sl-chips.fund { left: 60px; right: 60px; top: 172px; bottom: auto; justify-content: center; max-width: none; }
+.sl-or-sep { font-size: 26px; color: var(--slate); font-weight: 700; }
+
+/* ---------- 42 页年终 ---------- */
+
+.sl-finalhead { position: absolute; top: 44px; left: 0; right: 0; text-align: center; }
+.sl-finalhead .sl-big-title { position: static; font-size: 96px; color: var(--jade-deep); text-shadow: 0 3px 0 rgba(212, 160, 23, 0.4); }
+.sl-award-title { font-size: 46px; color: var(--gold); font-weight: 800; letter-spacing: 6px; margin-top: 8px; }
+.sl-rank { position: absolute; left: 110px; right: 110px; top: 262px; display: flex; flex-direction: column; gap: 12px; }
+.sl-rank-row {
+  display: flex; align-items: baseline; gap: 24px;
+  background: rgba(255, 255, 255, 0.88); border: 2.5px solid var(--slate-border); border-radius: 14px;
+  padding: 10px 26px; font-size: 28px;
+}
+.sl-rank-row.first { border-color: var(--gold-border); background: var(--gold-soft); }
+.sl-rank-pos { font-size: 32px; font-weight: 900; color: var(--gold-deep, #8a6608); min-width: 140px; }
+.sl-rank-name { font-weight: 800; font-size: 30px; }
+.sl-rank-vals { color: var(--slate); margin-left: auto; }
+.sl-rank-total { font-size: 34px; font-weight: 800; color: var(--jade-deep); min-width: 130px; text-align: right; }
+.sl-goals { position: absolute; left: 50px; right: 50px; bottom: 118px; display: flex; justify-content: center; gap: 18px; }
+.sl-goal {
+  font-size: 22px; font-weight: 700; padding: 8px 20px; border-radius: 999px; border: 2.5px solid;
+  white-space: nowrap;
+}
+.sl-goal.ok { color: var(--jade-deep); border-color: var(--jade-border); background: var(--jade-soft); }
+.sl-goal.miss { color: var(--cinnabar); border-color: var(--cinnabar-border); background: var(--cinnabar-soft); }
+.sl-awards { position: absolute; left: 110px; right: 110px; bottom: 30px; display: flex; justify-content: center; gap: 34px; flex-wrap: wrap; }
+.sl-award { display: flex; align-items: baseline; gap: 10px; font-size: 24px; }
+.sl-award-name { color: var(--gold-deep, #8a6608); font-weight: 800; font-size: 27px; }
+.sl-award-to { color: var(--slate); }
+
+/* ---------- 动画抑制 ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .sl-canvas *, .sl-canvas *::before, .sl-canvas *::after {
+    animation: none !important; transition: none !important;
+  }
+}
