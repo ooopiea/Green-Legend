@@ -51,12 +51,11 @@ const BASE = process.argv[2] || 'http://localhost:8000/index.html';
   const vb = await stage.locator('.th-scene svg').first().getAttribute('viewBox');
   check('场景：svg=1 且 viewBox 0 0 800 450', sceneN === 1 && vb === '0 0 800 450', `svg=${sceneN} vb=${vb}`);
 
-  // 3. 1 月：4 张选项卡 + 方向暗示
+  // 3. 1 月：4 张选项卡 + 无方向暗示（b1b4a5d 起选项卡不再显示生态/经济影响提示）
   const cardN1 = await stage.locator('.th-card').count();
   check('1月：选项卡 4 张', cardN1 === 4, 'n=' + cardN1);
-  const dCard = stage.locator('.th-card', { hasText: '超高产能' });
-  const dDown = await dCard.locator('.hint.down').count();
-  check('1月 D 卡含向下暗示（经济↓/生态↓）', dDown >= 1, 'down=' + dDown);
+  const hintN = await stage.locator('.th-card .hint').count();
+  check('1月：选项卡无方向暗示', hintN === 0, 'hints=' + hintN);
   const hudFin = await stage.locator('.th-hud-gov b').textContent();
   const ctrlFin = await ctrl.evaluate(() => ControlConsole.state.government.finance);
   check('HUD 财政与中控一致', String(ctrlFin) === hudFin.trim(), `hud=${hudFin} ctrl=${ctrlFin}`);
@@ -94,9 +93,8 @@ const BASE = process.argv[2] || 'http://localhost:8000/index.html';
   await clearRescue();
   // 3 月
   await ctrl.waitForTimeout(300);
-  const cCard = stage.locator('.th-card', { hasText: '种树' });
-  const cUp = await cCard.locator('.hint.up').count();
-  check('3月 C 卡含生态↑暗示', cUp >= 1, 'up=' + cUp);
+  const hintN3 = await stage.locator('.th-card .hint').count();
+  check('3月：选项卡仍无方向暗示', hintN3 === 0, 'hints=' + hintN3);
   const monthTxt = await stage.locator('.th-hud-month').textContent();
   check('HUD 显示 3 月', /3\s*月/.test(monthTxt), monthTxt);
 

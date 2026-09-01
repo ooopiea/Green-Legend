@@ -316,6 +316,12 @@
     const opt = step.government.options.find(function (o) { return o.id === optionId; });
     if (!opt) return { ok: false, error: "未知政策选项" };
     const apply = opt.apply;
+
+    /* 生态奖惩并行（ecoBoth）：处罚生态最低 + 奖励生态最高同时生效，力度一致 */
+    if (apply.target === "ecoBoth") {
+      return settleEcoBoth(state, step, opt, reason);
+    }
+
     const targets = policyTargets(state, apply);
 
     // 财政红线：6 月补贴按受影响企业数逐家扣（-2 × N）；其余政策财政为一次性总额
@@ -354,6 +360,53 @@
       reason: reason || "",
     });
     log(state, "government", "【" + state.month + "月】政府执行「" + opt.label + "」，受影响企业：" + (targets.join("、") || "无") + "，财政 " + fmtDelta(totalFinance) + (reason ? "。理由：" + reason : ""));
+    checkRisks(state);
+    return { ok: true, triggersDice: opt.triggersDice || null };
+  }
+
+  /* 生态奖惩并行结算：处罚生态最低企业 + 奖励生态最高企业，力度一致、同时生效。
+     财政口径：罚入与奖出一次相抵（力度一致时净 0，财政不变）；企业侧并列时逐家生效。
+     同一企业并列最低且最高（三家并列）时，其处罚与奖励等额相抵。 */
+  function settleEcoBoth(state, step, opt, reason) {
+    const apply = opt.apply;
+    const punishIds = policyTargets(state, { target: "ecoLowest" });
+    const rewardIds = policyTargets(state, { target: "ecoHighest" });
+    const purePunish = punishIds.filter(function (id) { return rewardIds.indexOf(id) < 0; });
+    const pureReward = rewardIds.filter(function (id) { return punishIds.indexOf(id) < 0; });
+
+    // 财政红线：净支出 = 奖励总额 - 罚款总额（力度一致时为 0，不受红线限制）
+    const netFinance = Math.abs(apply.economyReward) - Math.abs(apply.economyPunish);
+    if (netFinance > 0 && state.government.finance < netFinance) {
+      return { ok: false, error: "财政红线：当前财政 " + state.government.finance + "，不足以同时执行奖惩（需 " + netFinance + "）" };
+    }
+
+    snapshot(state, "M" + state.month + " 政策前：" + opt.label);
+    markPreSettle(state);
+    const hit = {}; // companyId -> 净经济变动（处罚与奖励相抵后）
+    purePunish.forEach(function (id) { hit[id] = (hit[id] || 0) + apply.economyPunish; });
+    pureReward.forEach(function (id) { hit[id] = (hit[id] || 0) + apply.economyReward; });
+    for (const cid in hit) {
+      const c = getCompany(state, cid);
+      const rec = ensureMonthlyRecord(state, cid);
+      if (hit[cid]) {
+        c.economy += hit[cid];
+        rec.govDelta += hit[cid];
+      }
+      rec.notes.push("政府「" + opt.label + "」经济 " + fmtDelta(hit[cid]) + "（处罚 " + (punishIds.indexOf(cid) >= 0 ? "是" : "否") + " / 奖励 " + (rewardIds.indexOf(cid) >= 0 ? "是" : "否") + "）");
+    }
+    state.government.finance += netFinance;
+
+    state.government.policyLog.push({
+      t: new Date().toISOString(),
+      month: state.month,
+      policyId: opt.id,
+      label: opt.label,
+      detail: opt.detail,
+      targets: punishIds.concat(rewardIds).filter(function (v, i, a) { return a.indexOf(v) === i; }),
+      finance: netFinance,
+      reason: reason || "",
+    });
+    log(state, "government", "【" + state.month + "月】政府执行「" + opt.label + "」：处罚（生态最低）" + (punishIds.join("、") || "无") + "，奖励（生态最高）" + (rewardIds.join("、") || "无") + "，财政 " + fmtDelta(netFinance) + (reason ? "。理由：" + reason : ""));
     checkRisks(state);
     return { ok: true, triggersDice: opt.triggersDice || null };
   }

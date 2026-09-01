@@ -68,23 +68,26 @@ test("2月 B 改造：经济 -15+5，生态 0 变化", () => {
   assert.strictEqual(getC(s, "A").economy, before - 15 + 5);
   assert.strictEqual(getC(s, "A").ecology, 45); // 不变
 });
-test("2月 生态奖惩：轻罚最低者（经济-10 财政+10）", () => {
+test("2月 生态奖惩（并行）：从轻——最低 -10 且最高 +10 同时生效，财政不变", () => {
   const s = newGame();
-  // 1月：A 选 D（生态35 最低），B 选 C（生态45），C 选 B（生态50）
+  // 1月：A 选 D（经济37 生态35 最低），B 选 C（经济45 生态45），C 选 B（经济35 生态50 最高）
   E.settleCompanyChoice(s, getStep(s, 1, 0), { A: { optionId: "m1-D" }, B: { optionId: "m1-C" }, C: { optionId: "m1-B" } });
   const ecoStep = getStep(s, 2, 1);
-  const r = E.settleGovernmentPolicy(s, ecoStep, "m2-ecoPunishLight", "警示");
+  const r = E.settleGovernmentPolicy(s, ecoStep, "m2-ecoBothLight", "警示与激励并行");
   assert.ok(r.ok);
-  assert.strictEqual(getC(s, "A").economy, 37 - 10);
-  assert.strictEqual(s.government.finance, 110);
+  assert.strictEqual(getC(s, "A").economy, 37 - 10); // 生态最低：处罚
+  assert.strictEqual(getC(s, "C").economy, 35 + 10); // 生态最高（C 选 m1-B 生态 50）：奖励
+  assert.strictEqual(getC(s, "B").economy, 45);      // 中间：不动
+  assert.strictEqual(s.government.finance, 100);     // 罚入奖出相抵
 });
-test("2月 生态奖惩：重奖最高者（经济+20 财政-20）", () => {
+test("2月 生态奖惩（并行）：从重——最低 -20 且最高 +20，财政不变", () => {
   const s = newGame();
   E.settleCompanyChoice(s, getStep(s, 1, 0), { A: { optionId: "m1-D" }, B: { optionId: "m1-C" }, C: { optionId: "m1-B" } });
-  const r = E.settleGovernmentPolicy(s, getStep(s, 2, 1), "m2-ecoRewardHeavy", "激励");
+  const r = E.settleGovernmentPolicy(s, getStep(s, 2, 1), "m2-ecoBothHeavy", "激励");
   assert.ok(r.ok);
-  assert.strictEqual(getC(s, "C").economy, 35 + 20); // C 生态 50 最高
-  assert.strictEqual(s.government.finance, 80);
+  assert.strictEqual(getC(s, "A").economy, 37 - 20);
+  assert.strictEqual(getC(s, "C").economy, 35 + 20); // C 选 m1-B 生态 50 最高
+  assert.strictEqual(s.government.finance, 100);
 });
 
 console.log("== 3 月：团建 + 疫情 ==");
@@ -286,18 +289,22 @@ test("生态 ≤20 触发滑坡额外扣 10", () => {
 });
 test("经济首次 ≤20 触发救助资格（限一次）", () => {
   const s = newGame();
-  // 1月D(-30+7=37) 2月重罚(-20)=17 ≤20 → rescuePending
+  // 1月D(-30+7=37)；B/C 均选 B（生态50 并列最高，奖励相抵）
   E.settleCompanyChoice(s, getStep(s, 1, 0), { A: { optionId: "m1-D" }, B: { optionId: "m1-B" }, C: { optionId: "m1-B" } });
-  const r = E.settleGovernmentPolicy(s, getStep(s, 2, 1), "m2-ecoPunishHeavy", "");
+  // 2月不改造；从重奖惩：A 最低 -20 → 17 ≤20 → rescuePending；B/C 并列最高同获 +20（财政不变）
+  E.settleCompanyChoice(s, getStep(s, 2, 0), { A: { optionId: "m2-A" }, B: { optionId: "m2-A" }, C: { optionId: "m2-A" } });
+  const r = E.settleGovernmentPolicy(s, getStep(s, 2, 1), "m2-ecoBothHeavy", "");
   assert.ok(r.ok);
   assert.strictEqual(getC(s, "A").economy, 17);
+  assert.strictEqual(getC(s, "B").economy, 35 + 20); // 并列最高逐家奖励
+  assert.strictEqual(getC(s, "C").economy, 35 + 20);
   assert.ok(s.rescuePending && s.rescuePending.companyId === "A");
   assert.strictEqual(s.rescueUsed.A, true);
   // 发放救助
   const rr = E.resolveRescue(s, true, "保护就业");
   assert.ok(rr.ok);
   assert.strictEqual(getC(s, "A").economy, 27);
-  assert.strictEqual(s.government.finance, 100 + 20 - 10);
+  assert.strictEqual(s.government.finance, 100 - 10); // 并行奖惩财政不变，救助 -10 → 90
   // 再次降 ≤20 不再有救助资格
   s.rescuePending = null;
   getC(s, "A").economy = 15;
@@ -311,10 +318,12 @@ test("财政不足时支出型政策被拒绝", () => {
   s.government.finance = 15;
   const r = E.settleGovernmentPolicy(s, getStep(s, 9, 1), "m9-C", ""); // 需 30
   assert.ok(!r.ok && /红线/.test(r.error));
-  // 4 档资金同理
+  // 并行奖惩不受红线限制：罚入奖出等额相抵（净 0），财政再低也可执行
   s.government.finance = 5;
-  const r2 = E.settleGovernmentPolicy(s, getStep(s, 2, 1), "m2-ecoRewardHeavy", ""); // 需 20
-  assert.ok(!r2.ok);
+  E.settleCompanyChoice(s, getStep(s, 1, 0), { A: { optionId: "m1-D" }, B: { optionId: "m1-C" }, C: { optionId: "m1-B" } });
+  const r2 = E.settleGovernmentPolicy(s, getStep(s, 2, 1), "m2-ecoBothHeavy", "");
+  assert.ok(r2.ok);
+  assert.strictEqual(s.government.finance, 5); // 净 0：A 罚 20、C 奖 20（C 选 m1-B 生态 50 最高）
 });
 
 console.log("== 撤销与序列化 ==");

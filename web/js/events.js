@@ -24,40 +24,30 @@
     twoWayCharger: { name: "双向充电桩", icon: "⚡" },
   };
 
-  /* ---------- 通用：生态奖惩（2 / 8 / 11 月复用） ---------- */
+  /* ---------- 通用：生态奖惩（2 / 8 / 11 月复用） ----------
+     力度一致、奖惩并行：政府只选从轻/从重一档，
+     处罚生态最低企业 + 奖励生态最高企业同时生效（财政罚入奖出相抵净 0） */
   function ecoRewardPunishStep(month) {
     return {
       type: "governmentChoice",
       id: `m${month}-ecoPolicy`,
       title: "生态奖惩",
       prompt:
-        "为了推动环保目标的实现，政府决定根据企业的生态表现进行相应的惩罚或奖励。环保做得最差的企业可能面临处罚，而表现突出的企业则会获得丰厚奖励，政府将如何执行？",
+        "为了推动环保目标的实现，政府决定根据企业的生态表现进行相应的惩罚或奖励。环保做得最差的企业将受到处罚，而表现突出的企业则会获得奖励，奖惩力度保持一致并同时执行，政府选择从轻还是从重？",
       government: {
-        target: "ecoExtrema", // 系统自动找出生态最高/最低企业，政府选动作
+        target: "ecoExtrema", // 系统自动找出生态最高/最低企业，政府选力度（奖惩并行）
         options: [
           {
-            id: `m${month}-ecoPunishLight`,
-            label: "轻度处罚 · 生态最低企业",
-            detail: "被处罚企业经济 -10，政府财政 +10",
-            apply: { target: "ecoLowest", economy: -10, finance: +10 },
+            id: `m${month}-ecoBothLight`,
+            label: "从轻奖惩",
+            detail: "生态最低企业经济 -10，生态最高企业经济 +10，财政不变（罚入奖出相抵）",
+            apply: { target: "ecoBoth", economyPunish: -10, economyReward: +10 },
           },
           {
-            id: `m${month}-ecoPunishHeavy`,
-            label: "重度处罚 · 生态最低企业",
-            detail: "被处罚企业经济 -20，政府财政 +20",
-            apply: { target: "ecoLowest", economy: -20, finance: +20 },
-          },
-          {
-            id: `m${month}-ecoRewardLight`,
-            label: "轻度奖励 · 生态最高企业",
-            detail: "被奖励企业经济 +10，政府财政 -10",
-            apply: { target: "ecoHighest", economy: +10, finance: -10 },
-          },
-          {
-            id: `m${month}-ecoRewardHeavy`,
-            label: "重度奖励 · 生态最高企业",
-            detail: "被奖励企业经济 +20，政府财政 -20",
-            apply: { target: "ecoHighest", economy: +20, finance: -20 },
+            id: `m${month}-ecoBothHeavy`,
+            label: "从重奖惩",
+            detail: "生态最低企业经济 -20，生态最高企业经济 +20，财政不变（罚入奖出相抵）",
+            apply: { target: "ecoBoth", economyPunish: -20, economyReward: +20 },
           },
         ],
       },

@@ -77,14 +77,14 @@
         onclick: function () {
           let keep = false;
           if (b.onClick) keep = b.onClick() === false;
-          if (!keep && b.closes !== false) document.body.removeChild(backdrop);
+          if (!keep && b.closes !== false && backdrop.parentNode) document.body.removeChild(backdrop);
         },
       }));
     });
     box.appendChild(actions);
     backdrop.appendChild(box);
     backdrop.addEventListener("click", function (e) {
-      if (e.target === backdrop && opts.dismissable !== false) document.body.removeChild(backdrop);
+      if (e.target === backdrop && opts.dismissable !== false && backdrop.parentNode) document.body.removeChild(backdrop);
     });
     document.body.appendChild(backdrop);
     return backdrop;

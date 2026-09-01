@@ -754,6 +754,7 @@
       dismissable: false,
       body: body,
       buttons: [
+        { label: "撤销上一步", onClick: function () { doUndo(); } },
         { label: "不发放", onClick: function () {
           E.resolveRescue(state, false, reason.value.trim());
           save(); render();
@@ -782,6 +783,11 @@
     if (!r.ok) { U.toast(r.error, "warn"); return; }
     ControlConsole.state = r.state;
     save();
+    // 清扫残留弹窗（含救助弹窗本身）：撤销后由 render() 按恢复状态决定是否重开。
+    // 幂等移除：modal 按钮自身关闭逻辑可能已将其摘除，remove 前判 parentNode
+    document.querySelectorAll(".modal-backdrop").forEach(function (b) {
+      if (b.parentNode) b.parentNode.removeChild(b);
+    });
     U.toast("已撤销到最近快照", "ok");
     render();
   }
