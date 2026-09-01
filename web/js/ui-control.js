@@ -41,22 +41,121 @@
     return md ? md.steps.length : 0;
   }
 
-  function advanceStep(state) {
+  /* 单步推进：不落盘不渲染（由 advanceStep 统一收尾）。
+     换月分支：先快照（撤销点），再换月，再月初持续收益结算。 */
+  function advanceOne(state) {
     if (state.stepIndex + 1 < totalSteps(state)) {
       state.stepIndex++;
     } else if (state.month < 12) {
+      E.snapshot(state, "M" + state.month + " 月末（推进下月前）");
       state.month++;
       state.stepIndex = 0;
       state.pendingDecisions = {};
       state.revealed = false;
       E.log(state, "system", "—— 进入 " + state.month + " 月 ——");
+      E.settleMonthOpening(state);
     } else {
       state.finished = true;
       E.log(state, "system", "—— 12 个月结束，进入年终结算 ——");
     }
     state.phase = currentStep(state) ? currentStep(state).type : "finished";
+  }
+
+  function advanceStep(state) {
+    // 两阶段结算：stepSettled.skip 记录需跳过的后续步骤数（如 4 月停工跳过掷骰）
+    const skip = (state.stepSettled && state.stepSettled.skip) || 0;
+    state.stepSettled = null;
+    for (let i = 0; i < 1 + skip; i++) advanceOne(state);
     save();
     render();
+  }
+
+  /* 当前步骤是否处于"已结算待推进"（答案页停留阶段） */
+  function isSettled(state, step) {
+    return !!(state.stepSettled && state.stepSettled.stepId === step.id);
+  }
+
+  /* 政府决策后是否需要跳过下一步掷骰（所选政策未 triggersDice，如 4 月停工） */
+  function computeSkip(state, step, chosenOption) {
+    const md = monthDef(state.month);
+    const next = md ? md.steps[state.stepIndex + 1] : null;
+    if (step.type === "governmentChoice" && next && next.type === "diceCheck" && !(chosenOption && chosenOption.triggersDice)) {
+      return 1;
+    }
+    return 0;
+  }
+
+  function settledCard(state, title) {
+    const card = U.el("div", { class: "card", style: "border-color:var(--gold)" });
+    card.appendChild(U.el("h4", { text: "✓ " + title }));
+    card.appendChild(U.el("p", { style: "font-size:13px;color:var(--slate)", text: "答案页已投影，讲解后点「下一步」继续。" }));
+    card.appendChild(U.el("button", { class: "btn-lg btn-gold", text: "下一步 ▸", onclick: function () { advanceStep(ControlConsole.state); } }));
+    return card;
+  }
+
+  /* ================= 舞台投影控制（演示翻页） ================= */
+
+  const STAGE_UI_KEY = "greentales-stage";
+  const STAGE_TOTAL = 42;
+
+  function readStageUi() {
+    try {
+      const v = JSON.parse(U.storage.get(STAGE_UI_KEY) || "");
+      if (v && v.ver === 1) return v;
+    } catch (e) {}
+    return { ver: 1, offset: 0, introSlide: 1, hudVisible: true };
+  }
+
+  function writeStageUi(v) {
+    U.storage.set(STAGE_UI_KEY, JSON.stringify(v));
+    try { U.storage.set("greentales-tick", String(Date.now())); } catch (e) {}
+  }
+
+  function stageAutoSlide(state) {
+    const GL = root.GreenSlides;
+    if (!state || !GL || typeof GL.autoSlide !== "function") return null;
+    return GL.autoSlide(state);
+  }
+
+  /* 演示翻页器：自动联动 + 手动 ±1 微调（自动页变化时偏移归零） */
+  function buildPager(state) {
+    const ui = readStageUi();
+    const auto = stageAutoSlide(state);
+    const eff = auto != null ? Math.min(STAGE_TOTAL, Math.max(1, auto + ui.offset)) : ui.introSlide;
+
+    function shift(dir) {
+      if (auto != null) {
+        const want = Math.min(STAGE_TOTAL, Math.max(1, eff + dir));
+        ui.offset = want - auto;
+      } else {
+        ui.introSlide = Math.min(STAGE_TOTAL, Math.max(1, ui.introSlide + dir));
+      }
+      writeStageUi(ui);
+      render();
+    }
+
+    const card = U.el("div", { class: "card", style: "padding:10px 12px" });
+    card.appendChild(U.el("h4", { text: "舞台投影 · 翻页（共 " + STAGE_TOTAL + " 页）" }));
+    const row = U.el("div", { style: "display:flex;gap:8px;align-items:center;flex-wrap:wrap" });
+    row.appendChild(U.el("button", { class: "btn-sm btn-ghost", text: "◀ 上一页", onclick: function () { shift(-1); } }));
+    row.appendChild(U.el("span", { class: "num", style: "min-width:88px;text-align:center", text: "第 " + eff + " / " + STAGE_TOTAL + " 页" }));
+    row.appendChild(U.el("button", { class: "btn-sm btn-ghost", text: "下一页 ▶", onclick: function () { shift(1); } }));
+    if (auto != null && ui.offset !== 0) {
+      row.appendChild(U.el("button", {
+        class: "btn-sm", style: "border-color:var(--gold);color:var(--gold)",
+        text: "手动偏移 " + (ui.offset > 0 ? "+" : "") + ui.offset + " · 点击归零",
+        title: "恢复自动跟随当前流程页",
+        onclick: function () { ui.offset = 0; writeStageUi(ui); render(); },
+      }));
+    } else if (auto != null) {
+      row.appendChild(U.el("span", { class: "badge badge-jade", text: "自动跟随" }));
+    }
+    row.appendChild(U.el("button", {
+      class: "btn-sm btn-ghost", text: ui.hudVisible ? "记分 HUD：显示" : "记分 HUD：隐藏",
+      onclick: function () { ui.hudVisible = !ui.hudVisible; writeStageUi(ui); render(); },
+    }));
+    card.appendChild(row);
+    return card;
   }
 
   /* ================= 渲染主框架 ================= */
@@ -70,6 +169,14 @@
     const app = document.getElementById("app");
     U.clear(app);
     const state = ControlConsole.state;
+
+    // 自动页变化时手动偏移归零（含撤销导致的回跳）
+    const auto = stageAutoSlide(state);
+    if (auto !== ControlConsole._lastAuto) {
+      ControlConsole._lastAuto = auto;
+      const ui = readStageUi();
+      if (ui.offset !== 0) { ui.offset = 0; writeStageUi(ui); }
+    }
 
     app.appendChild(buildTopbar(state));
 
@@ -176,6 +283,8 @@
     card.appendChild(importRow);
 
     wrap.appendChild(card);
+    // 课前规则页（1-8 页）手动翻页演示
+    wrap.appendChild(buildPager(null));
     return wrap;
   }
 
@@ -231,6 +340,7 @@
       U.el("span", { class: "event-title", text: md ? md.title : "" }),
       U.el("span", { class: "badge badge-jade", text: "步骤 " + (state.stepIndex + 1) + "/" + totalSteps(state) + " · " + stepTypeName(step) })));
     col.appendChild(head);
+    col.appendChild(buildPager(state));
 
     if (!step) { col.appendChild(U.el("div", { class: "card", text: "本月步骤已完成" })); return col; }
 
@@ -241,15 +351,22 @@
     if (step.timer) evCard.appendChild(buildTimerRow());
     col.appendChild(evCard);
 
-    // 按步骤类型分派
+    // 按步骤类型分派（政府/掷骰/自动结算后处于"已结算待推进"阶段时显示答案页停留卡）
     switch (step.type) {
       case "companyChoice": col.appendChild(buildCompanyChoice(state, step)); break;
       case "governmentChoice":
-        if (step.government && step.government.mode === "perApplicantFunding") col.appendChild(buildFundingPanel(state, step));
+        if (isSettled(state, step)) col.appendChild(settledCard(state, (step.government && step.government.mode === "perApplicantFunding") ? "试点资金已发放" : "政府决策已结算"));
+        else if (step.government && step.government.mode === "perApplicantFunding") col.appendChild(buildFundingPanel(state, step));
         else col.appendChild(buildGovPanel(state, step));
         break;
-      case "diceCheck": col.appendChild(buildDicePanel(state, step)); break;
-      case "autoEvent": col.appendChild(buildAutoPanel(state, step)); break;
+      case "diceCheck":
+        if (isSettled(state, step)) col.appendChild(settledCard(state, "掷骰已结算"));
+        else col.appendChild(buildDicePanel(state, step));
+        break;
+      case "autoEvent":
+        if (isSettled(state, step)) col.appendChild(settledCard(state, "自动事件已结算：" + step.title));
+        else col.appendChild(buildAutoPanel(state, step));
+        break;
       case "awardCeremony": col.appendChild(buildAwardPanel(state, step)); break;
     }
     return col;
@@ -421,7 +538,6 @@
         U.el("span", { class: "p-label", text: opt.label }),
         U.el("span", { class: "p-detail", text: opt.detail }));
       // 财政红线预判
-      const targets = E._debugTargets ? null : null;
       const need = predictFinanceNeed(state, step, opt);
       if (need != null && state.government.finance + need < 0) {
         btn.disabled = true;
@@ -432,9 +548,11 @@
         U.confirm(opt.label, opt.detail + "\n\n确认执行该政策？", function () {
           const r = E.settleGovernmentPolicy(state, step, opt.id, reasonInput.value.trim());
           if (!r.ok) { U.toast(r.error, "warn"); return; }
+          // 两阶段：结算后停在答案页，教师点「下一步」再推进（可能跳过掷骰步）
+          state.stepSettled = { stepId: step.id, skip: computeSkip(state, step, opt) };
           save();
           U.toast("政策已执行：" + opt.label, "ok");
-          advanceStep(state);
+          render();
         });
       });
       list.appendChild(btn);
@@ -514,11 +632,12 @@
       card.appendChild(row);
     });
 
-    card.appendChild(U.el("button", { class: "btn-lg btn-gold", text: "💰 发放试点资金并继续 ▸", onclick: function () {
+    card.appendChild(U.el("button", { class: "btn-lg btn-gold", text: "💰 发放试点资金 ▸", onclick: function () {
       const r = E.settlePilotFunding(state, step, selections, reasons);
       if (!r.ok) { U.toast(r.error, "warn"); return; }
+      state.stepSettled = { stepId: step.id, skip: 0 };
       save();
-      advanceStep(state);
+      render();
     } }));
     return card;
   }
@@ -577,8 +696,9 @@
 
     const settleBtn = U.el("button", { class: "btn-lg", disabled: true, text: "✓ 结算掷骰结果 ▸", onclick: function () {
       E.settleDiceResults(state, step, rolls);
+      state.stepSettled = { stepId: step.id, skip: 0 };
       save();
-      advanceStep(state);
+      render();
     } });
     card.appendChild(settleBtn);
 
@@ -604,8 +724,9 @@
     });
     card.appendChild(U.el("button", { class: "btn-lg", text: "⚡ 执行结算 ▸", onclick: function () {
       E.settleAutoEvent(state, step);
+      state.stepSettled = { stepId: step.id, skip: 0 };
       save();
-      advanceStep(state);
+      render();
     } }));
     return card;
   }
@@ -684,6 +805,7 @@
       U.el("button", { class: "btn-ghost", text: "查看归档复盘 ↗", onclick: function () { location.hash = "#/archive"; } }),
       U.el("button", { class: "btn-ghost", text: "⤓ 导出 JSON", onclick: doExport })));
     wrap.appendChild(card);
+    wrap.appendChild(buildPager(state));
     return wrap;
   }
 
