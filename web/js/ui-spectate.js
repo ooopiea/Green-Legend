@@ -29,9 +29,10 @@
     // 月份标题：观战页本地查表（URL 不编码文字，节省容量）
     const monthDef = EV.MONTHS.find(function (m) { return m.month === pub.m; });
 
-    // 页眉：月份 + 月份标题 + 揭示状态
-    wrap.appendChild(U.el("div", { class: "spec-header" },
-      U.el("span", { class: "spec-month", text: pub.m + " 月" }),
+    // 页眉：月份 + 月份标题 + 揭示状态（月份主题色与舞台场景一致）
+    const tint = (root.GreenScenes && root.GreenScenes.MONTH_TINT && root.GreenScenes.MONTH_TINT[pub.m]) || "#58c9a9";
+    wrap.appendChild(U.el("div", { class: "spec-header", style: "border-bottom-color:" + tint },
+      U.el("span", { class: "spec-month", style: "color:" + tint, text: pub.m + " 月" }),
       U.el("span", { class: "spec-title", text: monthDef ? monthDef.title : "" }),
       U.el("span", { class: "spec-reveal-badge" + (pub.rv ? "" : " hidden"),
         text: pub.rv ? "已揭示" : "讨论中" })));

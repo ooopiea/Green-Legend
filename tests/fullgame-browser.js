@@ -150,7 +150,18 @@ function pickSteps(m, k) { return (m + k) % 4; } // 选项轮转策略：覆盖�
 
     // 追踪月份推进
     const now = await ctrl.evaluate(() => ({ m: ControlConsole.state.month, f: ControlConsole.state.finished }));
-    if (now.m !== month) { month = now.m; monthLog.push('→' + month + '月'); }
+    if (now.m !== month) {
+      month = now.m; monthLog.push('→' + month + '月');
+      // 舞台断言：月份切换后 HUD 与场景随动
+      await stage.waitForTimeout(400);
+      try {
+        const hudM = (await stage.locator('.th-hud-month').textContent()).trim();
+        const okHud = new RegExp('^' + month + '\\s*月').test(hudM);
+        const svgN = await stage.locator('.th-scene svg').count();
+        const cards = await stage.locator('.th-card').count();
+        console.log(`  [舞台 ${month}月] HUD:${okHud ? 'OK' : 'FAIL(' + hudM + ')'} 场景svg:${svgN === 1 ? 'OK' : svgN} 选项卡:${cards}`);
+      } catch (e) { console.log(`  [舞台 ${month}月] 断言异常: ${e.message.slice(0, 60)}`); }
+    }
   }
 
   const fin = await ctrl.evaluate(() => {
@@ -178,8 +189,12 @@ function pickSteps(m, k) { return (m + k) % 4; } // 选项轮转策略：覆盖�
 
   // 舞台终局同步
   await stage.waitForTimeout(1000);
-  const st = (await stage.textContent('#app')).replace(/\s+/g, ' ');
-  console.log('[舞台终局]', /年终|排名|冠军/.test(st) ? 'OK · ' + st.slice(0, 80) : 'FAIL: ' + st.slice(0, 80));
+  const stTxt = (await stage.textContent('#app')).replace(/\s+/g, ' ');
+  console.log('[舞台终局]', /年终|排名|冠军/.test(stTxt) ? 'OK · ' + stTxt.slice(0, 80) : 'FAIL: ' + stTxt.slice(0, 80));
+  // 剧场式终局断言：终局场景 + 排名 + 纸屑动画类
+  const finScene = await stage.locator('.th-scene svg .confetti').count();
+  const finRank = await stage.locator('.th-final-rank .rk').count();
+  console.log('[剧场终局]', finScene > 0 && finRank === 3 ? `OK（纸屑${finScene}组 · 排名${finRank}行）` : `FAIL（纸屑${finScene} 排名${finRank}）`);
 
   await browser.close();
   process.exit(errors.length ? 1 : 0);
