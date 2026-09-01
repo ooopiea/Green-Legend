@@ -46,6 +46,7 @@
   function advanceOne(state) {
     if (state.stepIndex + 1 < totalSteps(state)) {
       state.stepIndex++;
+      state.revealed = false; // 月内推进同样复位揭示标志，否则下一步的题面页会被跳过
     } else if (state.month < 12) {
       E.snapshot(state, "M" + state.month + " 月末（推进下月前）");
       state.month++;

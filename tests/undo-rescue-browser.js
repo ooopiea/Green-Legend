@@ -29,7 +29,8 @@ const BASE = process.argv[2] || 'http://localhost:8000/index.html';
   await ctrl.reload();
   await ctrl.waitForTimeout(600);
 
-  // 剧本：1月 A 选 D（猛兽设备），2月 A 不改造 → 从重奖惩 → A 17 ≤20 触发救助弹窗
+  // 剧本（1.1.0 收益流口径）：1月 A=D → M1末 37/35；进 2 月初 m1-D 流 +7 → 44/35；
+  // 2月三家均改造(m2-B) → 34/35（A 生态最低）；从重奖惩 -20 → A 经济 14 ≤20 触发救助
   await ctrl.click('text=开 局');
   await ctrl.waitForTimeout(700);
 
@@ -43,26 +44,33 @@ const BASE = process.argv[2] || 'http://localhost:8000/index.html';
   await ctrl.click('button:has-text("下一步")');
   await ctrl.waitForTimeout(300);
 
-  // 2 月：A 不改造（A）、B 改造（B）、C 改造（B）→ 提交揭示
-  await btns0.nth(0).locator('.opt-btn').nth(0).click(); await ctrl.waitForTimeout(100);
+  // 2 月：三家均改造（B，围护改造 -10）→ A 34/35 生态最低
+  await btns0.nth(0).locator('.opt-btn').nth(1).click(); await ctrl.waitForTimeout(100);
   await btns0.nth(1).locator('.opt-btn').nth(1).click(); await ctrl.waitForTimeout(100);
   await btns0.nth(2).locator('.opt-btn').nth(1).click(); await ctrl.waitForTimeout(100);
   await ctrl.click('button:has-text("统一揭示并结算")');
   await ctrl.waitForTimeout(500);
-  // 2 月揭示后 A 生态 15 ≤20 滑坡 → 5；A 经济 22 → 无救助，点下一步进入生态奖惩步
+  // 2 月揭示后 A 44/35：经济>20 无救助，点下一步进入生态奖惩步
   await ctrl.click('button:has-text("下一步")');
   await ctrl.waitForTimeout(400);
 
-  // 2 月生态奖惩：从重（第 2 个政策按钮）→ A 生态 5 最低 -20 → 2 ≤20 → 救助弹窗
+  // 2 月生态奖惩：从重（第 2 个政策按钮）→ A 生态 35 最低 经济-20 → 14 ≤20 → 救助弹窗
   const pb = ctrl.locator('.policy-btn');
   check('2月生态奖惩面板：2 档并行选项', (await pb.count()) === 2, 'n=' + (await pb.count()));
   await pb.nth(1).click(); await ctrl.waitForTimeout(250);
   const okBtn = ctrl.locator('.modal button:has-text("确认")');
   if (await okBtn.count()) { await okBtn.click(); await ctrl.waitForTimeout(400); }
 
+  // 两阶段：政策结算置位 stepSettled（答案页停留），救助弹窗与之并存
+  const stSettled = await ctrl.evaluate(() => {
+    const s = ControlConsole.state;
+    return s.stepSettled && s.stepSettled.stepId;
+  });
+  check('两阶段：政府结算后 stepSettled 置位（待答案页停留）', stSettled === 'm2-ecoPolicy', 'stepId=' + stSettled);
+
   // 救助弹窗出现（dismissable:false 强制决策）
   const rescueDlg = ctrl.locator('.modal:has-text("破产救助决策")');
-  check('救助弹窗弹出（A 经济 ≤20）', (await rescueDlg.count()) === 1, 'n=' + (await rescueDlg.count()));
+  check('救助弹窗弹出（A 经济 ≤20）且与两阶段并存', (await rescueDlg.count()) === 1, 'n=' + (await rescueDlg.count()));
 
   // 核心断言 1：弹窗内含「撤销上一步」按钮
   const undoInDlg = rescueDlg.locator('button:has-text("撤销上一步")');
@@ -75,10 +83,11 @@ const BASE = process.argv[2] || 'http://localhost:8000/index.html';
   const stAfter1 = await ctrl.evaluate(() => {
     const s = ControlConsole.state;
     return { month: s.month, stepIndex: s.stepIndex, rescue: s.rescuePending !== null,
-      snaps: s.snapshots.length, revealed: s.revealed };
+      snaps: s.snapshots.length, revealed: s.revealed, settled: s.stepSettled };
   });
   check('弹窗内撤销一步：回到奖惩决策前（弹窗消失）', stAfter1.month === 2 && stAfter1.rescue === false,
     JSON.stringify(stAfter1));
+  check('撤销后 stepSettled 清空（快照早于结算置位）', stAfter1.settled === null, JSON.stringify(stAfter1.settled));
 
   // 连续从弹窗或顶栏撤销，直到最早快照（1 月揭示结算前）
   let month = 99, steps = 0, rescuedAgain = false;

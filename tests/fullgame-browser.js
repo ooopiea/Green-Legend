@@ -1,7 +1,8 @@
 /* ============================================================
    浏览器全流程冒烟（Playwright，开发者用，不进交付物）
    用法：NODE_PATH=<playwright路径> node tests/fullgame-browser.js [baseUrl]
-   自动打完 12 个月 + 年终颁奖，核对终局与刷新恢复。
+   自动打完 12 个月 + 年终颁奖，核对终局与刷新恢复；
+   两阶段结算：政府/掷骰/自动/资金结算后先停答案页，再点下一步推进。
    ============================================================ */
 const { chromium } = require('playwright');
 
@@ -36,12 +37,19 @@ function pickSteps(m, k) { return (m + k) % 4; } // 选项轮转策略：覆盖�
       if (!s) return null;
       const md = GreenEvents.MONTHS.find(m => m.month === s.month);
       const step = md && s.stepIndex < md.steps.length ? md.steps[s.stepIndex] : null;
-      return { month: s.month, stepIndex: s.stepIndex, finished: s.finished, stepType: step ? step.type : null, govMode: step && step.government ? (step.government.mode || (step.government.options ? 'options' : null)) : null, optCount: step && step.options ? step.options.length : 0 };
+      return { month: s.month, stepIndex: s.stepIndex, finished: s.finished, stepType: step ? step.type : null, govMode: step && step.government ? (step.government.mode || (step.government.options ? 'options' : null)) : null, optCount: step && step.options ? step.options.length : 0, stepId: step ? step.id : null, settled: !!(s.stepSettled && step && s.stepSettled.stepId === step.id) };
     });
     if (!st) { console.log('状态丢失'); break; }
     if (st.finished) { monthLog.push('终局'); break; }
 
     const tag = `${st.month}月#${st.stepIndex}(${st.stepType}${st.govMode ? ':' + st.govMode : ''})`;
+
+    // 两阶段：政府/掷骰/自动/资金已结算待推进 → 点下一步（答案页停留后推进）
+    if (st.settled) {
+      const nb = ctrl.locator('button:has-text("下一步")');
+      if (await nb.count()) { await nb.first().click(); await ctrl.waitForTimeout(350); continue; }
+      console.log(`  [${tag}] 已结算但无下一步按钮`); break;
+    }
 
     if (st.stepType === 'companyChoice') {
       // 已揭示 → 点"下一步"推进；未揭示 → 三家录选后统一揭示
@@ -103,8 +111,11 @@ function pickSteps(m, k) { return (m + k) % 4; } // 选项轮转策略：覆盖�
         }
         if (!clicked) { console.log(`  [${tag}] 无可用政策（财政红线全部禁用？）`); break; }
       } else if (st.govMode === 'perApplicantFunding') {
-        const fb = ctrl.locator('button:has-text("发放试点资金并继续")');
-        if (await fb.count()) { await fb.click(); await ctrl.waitForTimeout(400); }
+        // 给首位申报企业点第 2 档，覆盖档位发放路径
+        const t2 = ctrl.locator('.award-row').first().locator('button:has-text("第 2 档")');
+        if (await t2.count()) { await t2.click(); await ctrl.waitForTimeout(150); }
+        const fb = ctrl.locator('button:has-text("发放试点资金")');
+        if (await fb.count()) { await fb.click(); await ctrl.waitForTimeout(450); }
         else { const sb = ctrl.locator('button:has-text("跳过资金发放")'); if (await sb.count()) { await sb.click(); await ctrl.waitForTimeout(300); } }
       } else if (st.govMode === 'ecoExtrema') {
         const pbs = ctrl.locator('.policy-btn');
@@ -152,14 +163,13 @@ function pickSteps(m, k) { return (m + k) % 4; } // 选项轮转策略：覆盖�
     const now = await ctrl.evaluate(() => ({ m: ControlConsole.state.month, f: ControlConsole.state.finished }));
     if (now.m !== month) {
       month = now.m; monthLog.push('→' + month + '月');
-      // 舞台断言：月份切换后 HUD 与场景随动
-      await stage.waitForTimeout(400);
+      // 舞台断言：月份切换后 HUD 月份与幻灯片页号随动
+      await stage.waitForTimeout(900);
       try {
         const hudM = (await stage.locator('.th-hud-month').textContent()).trim();
         const okHud = new RegExp('^' + month + '\\s*月').test(hudM);
-        const svgN = await stage.locator('.th-scene svg').count();
-        const cards = await stage.locator('.th-card').count();
-        console.log(`  [舞台 ${month}月] HUD:${okHud ? 'OK' : 'FAIL(' + hudM + ')'} 场景svg:${svgN === 1 ? 'OK' : svgN} 选项卡:${cards}`);
+        const slide = await stage.locator('.sl-canvas').first().getAttribute('data-slide-n');
+        console.log(`  [舞台 ${month}月] HUD:${okHud ? 'OK' : 'FAIL(' + hudM + ')'} 页:${slide || '无'}`);
       } catch (e) { console.log(`  [舞台 ${month}月] 断言异常: ${e.message.slice(0, 60)}`); }
     }
   }
@@ -187,14 +197,17 @@ function pickSteps(m, k) { return (m + k) % 4; } // 选项轮转策略：覆盖�
   });
   console.log('[刷新恢复]', after && after.finished ? 'OK（终局保持）' : JSON.stringify(after));
 
-  // 舞台终局同步
-  await stage.waitForTimeout(1000);
+  // 舞台终局同步（幻灯片播放器）
+  await stage.waitForTimeout(1200);
   const stTxt = (await stage.textContent('#app')).replace(/\s+/g, ' ');
   console.log('[舞台终局]', /年终|排名|冠军/.test(stTxt) ? 'OK · ' + stTxt.slice(0, 80) : 'FAIL: ' + stTxt.slice(0, 80));
-  // 剧场式终局断言：终局场景 + 排名 + 纸屑动画类
-  const finScene = await stage.locator('.th-scene svg .confetti').count();
-  const finRank = await stage.locator('.th-final-rank .rk').count();
-  console.log('[剧场终局]', finScene > 0 && finRank === 3 ? `OK（纸屑${finScene}组 · 排名${finRank}行）` : `FAIL（纸屑${finScene} 排名${finRank}）`);
+  // 幻灯片终局断言：第 42 页画布 + 排名 3 行 + 目标胶囊 3 枚
+  const slideN = await stage.locator('.sl-canvas').first().getAttribute('data-slide-n');
+  const rankRows = await stage.locator('.sl-rank-row').count();
+  const goals = await stage.locator('.sl-goal').count();
+  console.log('[幻灯终局]', slideN === '42' && rankRows === 3 && goals === 3
+    ? `OK（第42页 · 排名${rankRows}行 · 目标${goals}枚）`
+    : `FAIL（页${slideN} 排名${rankRows} 目标${goals}）`);
 
   await browser.close();
   process.exit(errors.length ? 1 : 0);
