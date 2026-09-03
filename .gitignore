@@ -8,3 +8,6 @@ desktop.ini
 
 # 本地工具目录
 .claude/
+
+# 开发侧测试依赖（浏览器测试用系统 Chrome，channel:'chrome'）
+node_modules/

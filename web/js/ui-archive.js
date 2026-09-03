@@ -16,6 +16,7 @@
     U.clear(app);
     const state = getState();
     if (!state) {
+      app.appendChild(buildTopbar());
       app.appendChild(U.el("div", { class: "arch-empty" },
         U.el("h2", { text: "暂无可复盘的游戏" }),
         U.el("p", { text: "请先在中控台（#/control）开局，游戏数据会自动保存。" })));
@@ -23,6 +24,14 @@
     }
     render(state);
   };
+
+  /* 极简导航：归档页原先无任何返回入口，误入后只能改地址栏 */
+  function buildTopbar() {
+    return U.el("div", { class: "topbar" },
+      U.el("span", { class: "brand", text: "绿神话 · 归档" }),
+      U.el("a", { href: "#/control", text: "返回中控" }),
+      U.el("a", { href: "#/stage", target: "_blank", rel: "noopener", text: "舞台页 ↗" }));
+  }
 
   function getState() {
     const raw = U.storage.get(E.SAVE_KEY);
@@ -34,6 +43,7 @@
   function render(state) {
     const app = document.getElementById("app");
     U.clear(app);
+    app.appendChild(buildTopbar());
 
     const wrap = U.el("div", { class: "arch-wrap" });
     wrap.appendChild(U.el("div", { class: "arch-title" },

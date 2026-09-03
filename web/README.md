@@ -43,8 +43,8 @@ npx serve web
 
 ### 推荐课堂布局
 
-1. 电脑浏览器开两个窗口：`#/control`（自己看）+ `#/stage`（投影给学生）；
-2. 舞台窗口按 `F11` 全屏；
+1. 电脑浏览器开两个窗口：`#/control`（自己看）+ `#/stage`（投影给学生）——中控台顶栏的"舞台页 ↗ / 归档复盘"均**新标签打开**，不会把当前窗口带走；
+2. 舞台窗口按 `F11` 全屏（舞台页右下角常驻半透明"⟲ 返回中控"按钮，误入舞台页时可原窗口返回，投影时无干扰）；
 3. **课前**用中控台顶部翻页器手动翻第 1-8 页（封面/背景/规则/目标）；点"开 局"后舞台自动跳第 9 页并随流程联动；
 4. 教学中需要临时展示某页（如 3 月疫情突发页 17）时，用翻页器 `±1` 微调；自动翻页变化时偏移自动归零；
 5. 需要学生手机观战时，点中控台"观战二维码"，投影二维码让学生扫。
@@ -147,5 +147,5 @@ npx serve web
 - **模块**：`js/engine.js` 为纯逻辑核心（Node/浏览器双模式，`require` 与 `<script>` 均可加载，存档版本 1.1.0），`js/events.js` 为 12 个月事件静态数据（含 `recurring` 持续收益标记），`js/stage-slides.js` 为舞台幻灯片库（42 页 PPT 复刻渲染器 + 自动页号映射 `autoSlide`，Node 可 require），`js/qr.js` 为自研 QR Code Model 2 生成器（Byte 模式、ECL M、v1-13、Reed-Solomon GF(256)）；
 - **1.1.0 口径**：① 持续收益流——标注「每月经济」的选项当月生效后逐月月初再计入至 12 月（企业 `streams` 字段 + `settleMonthOpening`）；② 两阶段结算——政府/掷骰/自动/资金结算后 `stepSettled` 置位、舞台停答案页，中控"下一步"推进；1.0.0 旧档因版本校验不导入；
 - **素材来源**：`assets/` 内照片（光伏、充电桩、台风、电网受损、指标图标等）与 42 页版式均抽取自课程 PPT《建筑节能低碳导论课堂游戏-绿神话-v2.pptx》；
-- **测试**：仓库根目录 `tests/`（不进交付物）——Node：`engine.test.js`（39 项数值/流程）、`fullgame.test.js`（8 项全年剧本轨迹）、`slide-map.test.js`（69 项页号映射契约）、`qr.test.js`（6 项生成器结构，另经 pyzbar / OpenCV 双解码器实测 12 组全通过）；Playwright（开发者本机）：`stage-slides-browser.js`（30 项舞台联动）、`undo-rescue-browser.js`（11 项撤销/救助）、`fullgame-browser.js`（整局冒烟）；
+- **测试**：仓库根目录 `tests/`（不进交付物）——Node：`engine.test.js`（39 项数值/流程）、`fullgame.test.js`（8 项全年剧本轨迹）、`slide-map.test.js`（69 项页号映射契约）、`qr.test.js`（6 项生成器结构，另经 pyzbar / OpenCV 双解码器实测 12 组全通过）；Playwright（开发者本机，`channel:'chrome'` 用系统 Chrome）：`routing-browser.js`（21 项路由回归：无 hash 默认中控、全操作不改 hash、外链新标签、舞台/归档返回入口、双标签联动、file:// 子集）、`stage-slides-browser.js`（30 项舞台联动）、`undo-rescue-browser.js`（11 项撤销/救助）、`fullgame-browser.js`（整局冒烟）、`overlap-audit.js`（版面遮挡审计）；
 - **浏览器自检**：`#/test` 页内嵌 7 项断言，排障时先看它。

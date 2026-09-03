@@ -203,8 +203,9 @@
   function buildTopbar(state) {
     const links = [];
     links.push(U.el("a", { href: "#/control", class: "active", text: "中控台" }));
-    links.push(U.el("a", { href: "#/stage", text: "舞台页 ↗" }));
-    links.push(U.el("a", { href: "#/archive", text: "归档复盘" }));
+    // 外链一律新标签打开：↗ 图标名副其实，且当前窗口恒留中控（同窗口跳走会被误认为"自动跳转到舞台页"）
+    links.push(U.el("a", { href: "#/stage", target: "_blank", rel: "noopener", text: "舞台页 ↗" }));
+    links.push(U.el("a", { href: "#/archive", target: "_blank", rel: "noopener", text: "归档复盘" }));
     return U.el("div", { class: "topbar" },
       U.el("span", { class: "brand", text: "绿神话 · 中控" }),
       links,

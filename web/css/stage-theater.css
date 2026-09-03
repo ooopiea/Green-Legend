@@ -7,6 +7,7 @@
 
 /* ---------- 整体骨架 ---------- */
 .theater {
+  position: relative; /* .th-back 返回按钮的定位锚点 */
   display: flex; flex-direction: column;
   height: 100vh; overflow: hidden;
   background: var(--ink);
@@ -107,6 +108,17 @@
 .float-tag .pos { color: #58c9a9; }
 .float-tag .neg { color: #ff7b6b; }
 .float-tag .flat { color: #9fb3ab; }
+
+/* ---------- 右下角返回中控（逃生口：舞台页无导航，误入后可返） ---------- */
+.th-back {
+  position: absolute; right: 18px; bottom: 14px; z-index: 9;
+  padding: 6px 16px; border-radius: 999px;
+  background: rgba(20, 30, 26, 0.82); color: #9fb3ab;
+  border: 1.5px solid #55655e;
+  font-size: 14px; letter-spacing: 1px;
+  opacity: 0.38; transition: opacity 0.2s;
+}
+.th-back:hover { opacity: 1; color: #fff; border-color: var(--jade-border); filter: none; }
 
 /* ---------- keyframes ---------- */
 @keyframes float-rise {

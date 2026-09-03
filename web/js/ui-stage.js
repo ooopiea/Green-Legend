@@ -136,7 +136,13 @@
 
     theaterEl = U.el("div", { class: "theater" },
       hudEl,
-      slideboxEl = U.el("div", { class: "th-slidebox" }, veilEl, floatsEl));
+      slideboxEl = U.el("div", { class: "th-slidebox" }, veilEl, floatsEl),
+      // 逃生口：舞台页无任何导航，误入（链接/会话恢复/地址栏补全）后困在此页——右下角常驻返回
+      U.el("button", {
+        class: "th-back", text: "⟲ 返回中控",
+        title: "在本窗口打开中控台",
+        onclick: function () { location.hash = "#/control"; },
+      }));
     app.appendChild(theaterEl);
   }
 
