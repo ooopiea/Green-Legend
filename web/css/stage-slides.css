@@ -106,6 +106,8 @@
 
 .sl-opts { position: absolute; left: 60px; right: 60px; top: 172px; display: flex; flex-direction: column; gap: 16px; }
 .sl-opts.narrow { right: 560px; }
+/* 长题面（4 行）题面页：选项带下移 */
+.sl-opts.qlong { top: 238px; }
 .sl-opts.gov { top: 210px; max-width: 760px; }
 .sl-opt {
   display: flex; align-items: flex-start; gap: 18px;
@@ -123,7 +125,7 @@
 
 /* 提交状态芯片 */
 .sl-chips { position: absolute; left: 60px; bottom: 24px; display: flex; gap: 14px; flex-wrap: wrap; max-width: 1100px; }
-.sl-chips.dice { left: 60px; bottom: 56px; }
+.sl-chips.dice { left: 60px; bottom: 28px; }
 .sl-chip {
   font-size: 24px; padding: 8px 24px; border-radius: 999px;
   background: rgba(255, 255, 255, 0.85); border: 2.5px dashed var(--slate-border); color: var(--slate);
@@ -137,11 +139,16 @@
 /* ---------- 答案表 ---------- */
 
 .sl-rows { position: absolute; left: 60px; right: 60px; top: 168px; display: flex; flex-direction: column; gap: 12px; }
-.sl-rows.left { left: 60px; right: 480px; }
-.sl-rows.dense { position: static; }
-/* 36 页：题面+横幅之下 5 行紧凑表 */
-.sl-rows.m11 { top: 170px; gap: 8px; }
-.sl-rows.m11 .sl-row { padding: 9px 18px; }
+/* 长题面（3 行）页：下移让出题面带 */
+.sl-rows.low { top: 190px; }
+/* 横幅（m3 团建）之下 */
+.sl-rows.after-banner { top: 204px; }
+.sl-rows.left { left: 60px; right: 510px; }
+.sl-rows.dense { position: static; gap: 8px; }
+.sl-rows.dense .sl-row { padding: 9px 16px; }
+/* 36 页：四行题面+横幅之下 5 行紧凑表 */
+.sl-rows.m11 { top: 304px; gap: 6px; }
+.sl-rows.m11 .sl-row { padding: 7px 18px; }
 .sl-rows.m11 .sl-rowhead { padding: 0 18px; font-size: 21px; }
 .sl-rows.m11 .sl-row-name { font-size: 24px; }
 .sl-rows.m11 .sl-ic { width: 36px; height: 36px; }
@@ -164,6 +171,7 @@
 .sl-row-cell { display: flex; justify-content: center; align-items: center; gap: 6px; }
 
 /* 数值格 */
+.sl-cell { display: inline-flex; align-items: center; gap: 8px; }
 .sl-numwrap { display: inline-flex; align-items: center; gap: 8px; }
 .sl-num { font-size: 40px; font-weight: 800; font-variant-numeric: tabular-nums; opacity: 0.32; transition: opacity 0.5s; }
 .sl-num.pos { color: var(--jade); }
@@ -196,6 +204,8 @@
   background: var(--gold-soft); border: 2.5px solid var(--gold-border); border-radius: 12px;
   color: var(--gold-deep, #8a6608); font-size: 25px; font-weight: 700; text-align: center; padding: 10px 16px;
 }
+/* 36 页：四行题面之下的横幅 */
+.sl-banner.m11 { top: 234px; }
 .sl-center-note {
   position: absolute; left: 0; right: 0; bottom: 26px; text-align: center;
   font-size: 26px; color: var(--slate); font-weight: 600; letter-spacing: 2px;
@@ -206,13 +216,13 @@
 
 /* ---------- 政府答案/生态奖惩 ---------- */
 
-.sl-ecoblocks { position: absolute; left: 70px; right: 470px; top: 186px; display: flex; flex-direction: column; gap: 18px; }
+.sl-ecoblocks { position: absolute; left: 70px; right: 470px; top: 184px; display: flex; flex-direction: column; gap: 12px; }
 .sl-ecoblock {
   background: rgba(255, 255, 255, 0.86); border: 2.5px solid var(--slate-border); border-radius: 18px;
   padding: 18px 26px; box-shadow: var(--shadow);
 }
 .sl-eco-block-sep { height: 2px; background: var(--slate-border); opacity: 0.5; }
-.sl-eco-title { font-size: 28px; font-weight: 700; margin-bottom: 12px; }
+.sl-eco-title { font-size: 28px; font-weight: 700; margin-bottom: 10px; }
 .sl-eco-chips { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }
 .sl-orb {
   display: inline-flex; align-items: center; gap: 10px;
@@ -222,17 +232,20 @@
 .sl-orb.picked { border-color: var(--gold-border); background: var(--gold-soft); box-shadow: 0 0 0 4px rgba(212, 160, 23, 0.25); }
 .sl-orb-txt { font-size: 21px; color: var(--slate); font-weight: 600; }
 .sl-orb .sl-ic { width: 38px; height: 38px; }
-.sl-eco-who { margin-top: 12px; font-size: 24px; font-weight: 700; }
+.sl-orb .sl-num { font-size: 34px; }
+.sl-eco-who { margin-top: 8px; font-size: 24px; font-weight: 700; }
 .sl-eco-who.neg { color: var(--cinnabar); }
 .sl-eco-who.pos { color: var(--jade-deep); }
 
 /* 4 月答案两栏 */
-.sl-m4wrap { position: absolute; left: 60px; right: 60px; top: 150px; display: grid; grid-template-columns: 1fr 1.4fr; gap: 28px; }
+.sl-m4wrap { position: absolute; left: 60px; right: 60px; top: 182px; display: grid; grid-template-columns: 1fr 1.4fr; gap: 28px; }
 .sl-m4-col {
   background: rgba(255, 255, 255, 0.82); border: 2.5px solid var(--slate-border); border-radius: 18px;
   padding: 18px 24px; box-shadow: var(--shadow);
 }
 .sl-m4-col .sl-eco-title { margin-bottom: 14px; }
+/* 掷骰规则注：改为列内常规流（原先 absolute 锚到画布，与两栏内容互压） */
+.sl-m4-col .sl-note { position: static; max-width: none; margin-top: 10px; }
 
 /* 试点资金档位 */
 .sl-tierrow { position: absolute; left: 0; right: 0; top: 296px; display: flex; justify-content: center; gap: 16px; align-items: center; }
@@ -245,7 +258,7 @@
 .sl-finalhead { position: absolute; top: 44px; left: 0; right: 0; text-align: center; }
 .sl-finalhead .sl-big-title { position: static; font-size: 96px; color: var(--jade-deep); text-shadow: 0 3px 0 rgba(212, 160, 23, 0.4); }
 .sl-award-title { font-size: 46px; color: var(--gold); font-weight: 800; letter-spacing: 6px; margin-top: 8px; }
-.sl-rank { position: absolute; left: 110px; right: 110px; top: 262px; display: flex; flex-direction: column; gap: 12px; }
+.sl-rank { position: absolute; left: 110px; right: 110px; top: 286px; display: flex; flex-direction: column; gap: 12px; }
 .sl-rank-row {
   display: flex; align-items: baseline; gap: 24px;
   background: rgba(255, 255, 255, 0.88); border: 2.5px solid var(--slate-border); border-radius: 14px;

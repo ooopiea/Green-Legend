@@ -351,7 +351,7 @@
     "m2-envelope": ["envelope.png", "left:170px;bottom:26px;width:430px;"],
     "m5-pv": ["pv.jpeg", "right:50px;bottom:40px;width:470px;"],
     "m7-charger": ["charger-twoway.jpeg", "right:30px;bottom:30px;width:420px;"],
-    "m11-apply": ["zero-carbon-park.png", "right:50px;top:250px;width:400px;"],
+    "m11-apply": ["zero-carbon-park.png", "right:50px;top:236px;width:360px;height:380px;"],
   };
 
   function buildQuestion(canvas, stepInfo, state, atStep, revealed) {
@@ -359,7 +359,7 @@
     const step = stepInfo.step;
     head(canvas, stepInfo.month, step.prompt, false);
     const media = Q_MEDIA[step.id];
-    const opts = el("div", { class: "sl-opts" + (media ? " narrow" : "") });
+    const opts = el("div", { class: "sl-opts" + (media ? " narrow" : "") + (step.id === "m11-apply" ? " qlong" : "") });
     (step.options || []).forEach(function (o) {
       opts.appendChild(el("div", { class: "sl-opt" },
         el("span", { class: "sl-key", text: o.key || "" }),
@@ -410,7 +410,11 @@
       canvas.appendChild(el("div", { class: "sl-banner", text: "董事长的签证被拒了，团建活动改为去北京环球影城" }));
     }
 
-    const rows = el("div", { class: "sl-rows" });
+    /* 版式带按题面行数下移：m3 横幅之下、长题面（3 行）之下 */
+    let rowsCls = "sl-rows";
+    if (step.id === "m3-teambuilding") rowsCls += " after-banner";
+    else if (step.id === "m8-battery" || step.id === "m12-smog") rowsCls += " low";
+    const rows = el("div", { class: rowsCls });
     rows.appendChild(ansHeader());
     (step.options || []).forEach(function (o) {
       const monthlyBadge = !!(o.recurring && o.monthly);
@@ -638,10 +642,11 @@
         el("div", { class: "sl-row-cell" }, iconNum("metric-econ-sm.png", r.economy, settled, false))));
     });
     canvas.appendChild(rows);
-    canvas.appendChild(el("div", { class: "sl-note", text: "请【拥有屋顶光伏】的企业掷骰子决定：结果 1、3、5 → A；2、4、6 → B" }));
+    /* 掷骰规则注置于表格下方常规带（底部带与骰子芯片换行区互压） */
+    canvas.appendChild(el("div", { class: "sl-note", style: "top:400px;bottom:auto;", text: "请【拥有屋顶光伏】的企业掷骰子决定：结果 1、3、5 → A；2、4、6 → B" }));
     const chips = diceChips(state, "m9-typhoonPV", 9);
     if (chips) canvas.appendChild(chips);
-    canvas.appendChild(img("typhoon.jpeg", "sl-img", "right:50px;top:120px;width:480px;border-radius:16px;"));
+    canvas.appendChild(img("typhoon.jpeg", "sl-img", "right:50px;top:120px;width:440px;border-radius:16px;"));
   }
 
   /* ============================================================
@@ -765,7 +770,7 @@
       canvas.appendChild(chips);
     }
 
-    canvas.appendChild(el("div", { class: "sl-banner", text: "对于选择 B（加装后申报）的企业：" }));
+    canvas.appendChild(el("div", { class: "sl-banner m11", text: "对于选择 B（加装后申报）的企业：" }));
     const rows = el("div", { class: "sl-rows m11" });
     rows.appendChild(ansHeader());
     (step.retrofitOptions || []).forEach(function (r) {
