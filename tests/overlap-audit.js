@@ -39,7 +39,12 @@ function report(kind, label, detail) {
     function rectStr(r) {
       return `${Math.round(r.left)},${Math.round(r.top)} ${Math.round(r.width)}x${Math.round(r.height)}`;
     }
-    window.__audit = function (canvas, label) {
+    window.__audit = async function (canvas, label) {
+      /* 等图片真正加载完成（否则 img 高度为 0，重叠会被漏判） */
+      await Promise.all(Array.from(canvas.querySelectorAll('img')).map(im => {
+        if (im.complete && im.naturalWidth > 0) return null;
+        return im.decode().catch(() => new Promise(res => { im.onload = im.onerror = res; }));
+      }));
       const n = canvas.getAttribute('data-slide-n');
       const els = Array.from(canvas.querySelectorAll('*')).filter(e => {
         const cs = getComputedStyle(e);

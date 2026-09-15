@@ -415,19 +415,20 @@
         U.el("span", { class: "badge " + (state.pendingDecisions[c.id] ? "badge-jade" : ""), text: state.pendingDecisions[c.id] ? "已提交" : "待提交" })));
       const btns = U.el("div", { class: "opt-btns" });
       step.options.forEach(opt => {
-        const isDisabled = opt.requires && !optionAvailable(state, c, opt);
+        const unavailableReason = companyOptionUnavailableReason(state, c, opt, step);
+        const isDisabled = !!unavailableReason;
         const sel = state.pendingDecisions[c.id] && state.pendingDecisions[c.id].optionId === opt.id;
         btns.appendChild(U.el("button", {
           class: "opt-btn" + (sel ? " selected" : ""),
           disabled: state.revealed || isDisabled,
-          title: isDisabled ? "不满足资格条件" : "",
+          title: unavailableReason || "",
           onclick: function () {
             state.pendingDecisions[c.id] = { optionId: opt.id };
             save();
             render();
           },
         }, U.el("span", {}, U.el("span", { class: "num", text: opt.key || "·" }), opt.label),
-           opt.requires && !optionAvailable(state, c, opt) ? U.el("div", { style: "font-size:11px;color:var(--cinnabar)", text: "需先具备资格资产" }) : null));
+           unavailableReason ? U.el("div", { style: "font-size:11px;color:var(--cinnabar)", text: unavailableReason }) : null));
       });
       sc.appendChild(btns);
       grid.appendChild(sc);
@@ -445,18 +446,20 @@
           sc.appendChild(U.el("h5", { text: c.name }));
           const btns = U.el("div", { class: "opt-btns" });
           step.retrofitOptions.forEach(r => {
-            const disabled = r.requires && !Object.keys(r.requires).every(k => c.assets[k] === r.requires[k]);
+            const unavailableReason = retrofitUnavailableReason(state, c, r);
+            const disabled = !!unavailableReason;
             const sel = state.pendingDecisions[c.id].retrofitId === r.id;
             btns.appendChild(U.el("button", {
               class: "opt-btn" + (sel ? " selected" : ""),
               disabled: state.revealed || disabled,
-              title: disabled ? "不满足条件（如需已有单向充电桩）" : "",
+              title: unavailableReason || "",
               onclick: function () {
                 state.pendingDecisions[c.id].retrofitId = r.id;
                 save();
                 render();
               },
-            }, U.el("span", {}, U.el("span", { class: "num", text: "加" }), r.label)));
+            }, U.el("span", {}, U.el("span", { class: "num", text: "加" }), r.label),
+              unavailableReason ? U.el("div", { style: "font-size:11px;color:var(--cinnabar)", text: unavailableReason }) : null));
           });
           sc.appendChild(btns);
           rgrid.appendChild(sc);
@@ -489,19 +492,74 @@
     return Object.keys(opt.requires).every(k => company.assets[k] === opt.requires[k]);
   }
 
+  function companyOptionEconomyDelta(step, opt, retrofit) {
+    let delta = (opt.cost || 0) + (opt.monthly || 0) + (opt.economy || 0);
+    const followUp = step.followUp && step.followUp.effects ? step.followUp.effects[opt.id] : null;
+    if (followUp && followUp.economy) delta += followUp.economy;
+    if (retrofit) delta += (retrofit.cost || 0) + (retrofit.monthly || 0);
+    return delta;
+  }
+
+  function meetsRequirements(source, company) {
+    return !source.requires || Object.keys(source.requires).every(k => company.assets[k] === source.requires[k]);
+  }
+
+  function companyOptionUnavailableReason(state, company, opt, step) {
+    if (!meetsRequirements(opt, company)) return "需先具备资格资产";
+    const retrofitId = step.retrofitOptions && state.pendingDecisions[company.id]
+      ? state.pendingDecisions[company.id].retrofitId : null;
+    const retrofit = retrofitId ? step.retrofitOptions.find(item => item.id === retrofitId) : null;
+    if (retrofitId && !retrofit) return "加装选择无效";
+    if (retrofit && !meetsRequirements(retrofit, company)) return "加装项资格不足";
+    return company.economy + companyOptionEconomyDelta(step, opt, retrofit) < 0 ? "经济不足" : "";
+  }
+
+  function retrofitUnavailableReason(state, company, retrofit) {
+    if (!meetsRequirements(retrofit, company)) return "需先具备资格资产";
+    return company.economy + (retrofit.cost || 0) + (retrofit.monthly || 0) < 0 ? "经济不足" : "";
+  }
+
   function doReveal(step) {
     const state = ControlConsole.state;
+    if (state.revealed) {
+      render();
+      return;
+    }
+
+    const retrofitDecisions = {};
+    state.companies.forEach(c => {
+      const d = state.pendingDecisions[c.id];
+      if (d && d.optionId === "m11-B" && d.retrofitId) retrofitDecisions[c.id] = d.retrofitId;
+    });
+
+    const check = E.validateCompanyChoice(state, step, state.pendingDecisions, retrofitDecisions);
+    if (!check.ok) {
+      state.revealed = false;
+      U.toast(check.error, "warn");
+      render();
+      return;
+    }
+
     state.revealed = true;
-    // 结算企业选择
-    E.settleCompanyChoice(state, step, state.pendingDecisions);
+    const companyResult = E.settleCompanyChoice(state, step, state.pendingDecisions, retrofitDecisions);
+    if (!companyResult.ok) {
+      state.revealed = false;
+      U.toast(companyResult.error, "warn");
+      render();
+      return;
+    }
+
     // 11 月加装子结算
     if (step.retrofitOptions) {
-      const retrofitDecisions = {};
-      state.companies.forEach(c => {
-        const d = state.pendingDecisions[c.id];
-        if (d && d.optionId === "m11-B" && d.retrofitId) retrofitDecisions[c.id] = d.retrofitId;
-      });
-      if (Object.keys(retrofitDecisions).length) E.settleRetrofit(state, step, retrofitDecisions);
+      if (Object.keys(retrofitDecisions).length) {
+        const retrofitResult = E.settleRetrofit(state, step, retrofitDecisions);
+        if (!retrofitResult.ok) {
+          state.revealed = false;
+          U.toast(retrofitResult.error, "warn");
+          render();
+          return;
+        }
+      }
       // 加装后复查资格
       const apps = E.finalizeZeroCarbon(state, state.pendingDecisions, retrofitDecisions);
       const msgs = [];
@@ -523,7 +581,7 @@
   function buildGovPanel(state, step) {
     const card = U.el("div", { class: "card gov-panel" });
     card.appendChild(U.el("h4", {}, "政府决策 · 当前财政 ",
-      U.el("span", { class: "finance-big num", text: state.government.finance })));
+      U.el("span", { class: "finance-big num", text: E.fmtNumber(state.government.finance) })));
 
     if (step.government.target === "ecoExtrema") {
       // 显示当前生态排名辅助政府决策
@@ -535,19 +593,58 @@
     const reasonInput = U.el("input", { type: "text", class: "reason-input", placeholder: "政策理由（选填，将记入日志）" });
 
     const list = U.el("div", { class: "policy-list" });
-    step.government.options.forEach(opt => {
+    let expandedId = null;    // 当前展开子选项（A1/A2）的父选项 id
+
+    function tieCandidateIds(opt) {
+      const apply = opt.apply;
+      if (!apply) return [];
+      const t = apply.target;
+      if (["ecoLowest", "ecoLowestPlanting", "ecoHighest"].indexOf(t) < 0) return [];
+      return E.policyTargets(state, apply);
+    }
+
+    function createOptionButton(opt, isParent) {
       const btn = U.el("button", { class: "policy-btn" },
-        U.el("span", { class: "p-label", text: opt.label }),
+        U.el("span", { class: "p-label", text: (opt.key ? opt.key + " · " : "") + opt.label }),
         U.el("span", { class: "p-detail", text: opt.detail }));
-      // 财政红线预判
+      if (isParent) {
+        btn.addEventListener("click", function () {
+          expandedId = opt.id;
+          renderOptions();
+        });
+        return btn;
+      }
+
       const need = predictFinanceNeed(state, step, opt);
-      if (need != null && state.government.finance + need < 0) {
+      const tiedIds = tieCandidateIds(opt);
+      const economyBlockers = policyEconomyBlockers(state, opt);
+      if (economyBlockers.length) {
+        btn.disabled = true;
+        btn.title = "企业经济红线：不足以执行";
+        btn.appendChild(U.el("span", { class: "p-detail", style: "color:var(--cinnabar)",
+          text: "⚠ 经济不足：" + economyBlockers.map(c => c.name).join("、") }));
+      } else if (need != null && state.government.finance + need < 0) {
         btn.disabled = true;
         btn.title = "财政红线：不足以执行";
         btn.appendChild(U.el("span", { class: "p-detail", style: "color:var(--cinnabar)", text: "⚠ 财政不足（需 " + (-need) + "）" }));
+      } else if (tiedIds.length > 1) {
+        const tiedNames = tiedIds.map(id => E.getCompany(state, id).name).join("、");
+        btn.appendChild(U.el("span", { class: "p-detail", style: "color:var(--jade-deep)",
+          text: "⚠ 生态值并列：" + tiedNames + "；总点数将由这些企业平均分摊" }));
       }
       btn.addEventListener("click", function () {
-        U.confirm(opt.label, opt.detail + "\n\n确认执行该政策？", function () {
+        if (isSettled(state, step)) {
+          render();
+          return;
+        }
+        const tiedNote = tiedIds.length > 1
+          ? "\n\n执行对象：" + tiedIds.map(id => E.getCompany(state, id).name).join("、") + "（平均分摊）"
+          : "";
+        U.confirm(opt.label, opt.detail + tiedNote + "\n\n确认执行该政策？", function () {
+          if (isSettled(state, step)) {
+            render();
+            return;
+          }
           const r = E.settleGovernmentPolicy(state, step, opt.id, reasonInput.value.trim());
           if (!r.ok) { U.toast(r.error, "warn"); return; }
           // 两阶段：结算后停在答案页，教师点「下一步」再推进（可能跳过掷骰步）
@@ -557,8 +654,30 @@
           render();
         });
       });
-      list.appendChild(btn);
-    });
+      return btn;
+    }
+
+    function renderOptions() {
+      U.clear(list);
+      step.government.options.forEach(opt => {
+        const hasChildren = Array.isArray(opt.choices) && opt.choices.length > 0;
+        list.appendChild(createOptionButton(opt, hasChildren));
+        if (opt.id === expandedId && hasChildren) {
+          opt.choices.forEach(child => {
+            list.appendChild(createOptionButton(child, false));
+          });
+        }
+      });
+      if (expandedId) {
+        list.appendChild(U.el("button", {
+          class: "btn-sm btn-ghost",
+          text: "↩ 重新选择 A / B",
+          onclick: function () { expandedId = null; renderOptions(); },
+        }));
+      }
+    }
+
+    renderOptions();
     card.appendChild(list);
     card.appendChild(reasonInput);
     return card;
@@ -568,11 +687,22 @@
   function predictFinanceNeed(state, step, opt) {
     const apply = opt.apply;
     if (!apply || !apply.finance) return 0;
-    if (apply.target === "hasRooftopPV") {
-      const n = state.companies.filter(c => c.assets.rooftopPV).length;
+    if (apply.financeTarget === "perAffectedCompany" || apply.target === "hasRooftopPV") {
+      let n = E.policyTargets(state, apply).length;
+      const t = apply.target;
+      if (t === "ecoLowest" || t === "ecoLowestPlanting" || t === "ecoHighest") return apply.finance;
       return apply.finance * (n || 1);
     }
     return apply.finance;
+  }
+
+  function policyEconomyBlockers(state, opt) {
+    const apply = opt.apply;
+    if (!apply || !(apply.economy < 0)) return [];
+    const t = apply.target;
+    const targetIds = E.policyTargets(state, apply);
+    const share = apply.economy / (targetIds.length || 1);
+    return targetIds.map(id => E.getCompany(state, id)).filter(c => c.economy + share < 0);
   }
 
   /* ---------- 11 月试点资金面板 ---------- */
@@ -580,7 +710,7 @@
   function buildFundingPanel(state, step) {
     const card = U.el("div", { class: "card gov-panel" });
     card.appendChild(U.el("h4", {}, "零碳园区试点资金 · 财政 ",
-      U.el("span", { class: "finance-big num", text: state.government.finance })));
+      U.el("span", { class: "finance-big num", text: E.fmtNumber(state.government.finance) })));
 
     const apps = state.zeroCarbonApplications || {};
     const applicants = state.companies.filter(c => apps[c.id] && apps[c.id].applied);
@@ -635,6 +765,10 @@
     });
 
     card.appendChild(U.el("button", { class: "btn-lg btn-gold", text: "💰 发放试点资金 ▸", onclick: function () {
+      if (isSettled(state, step)) {
+        render();
+        return;
+      }
       const r = E.settlePilotFunding(state, step, selections, reasons);
       if (!r.ok) { U.toast(r.error, "warn"); return; }
       state.stepSettled = { stepId: step.id, skip: 0 };
@@ -697,6 +831,10 @@
     });
 
     const settleBtn = U.el("button", { class: "btn-lg", disabled: true, text: "✓ 结算掷骰结果 ▸", onclick: function () {
+      if (isSettled(state, step)) {
+        render();
+        return;
+      }
       E.settleDiceResults(state, step, rolls);
       state.stepSettled = { stepId: step.id, skip: 0 };
       save();
@@ -725,6 +863,10 @@
         U.el("span", { class: r.economy > 0 ? "delta-pos" : r.economy < 0 ? "delta-neg" : "delta-zero num", text: E.fmtDelta(r.economy || 0) })));
     });
     card.appendChild(U.el("button", { class: "btn-lg", text: "⚡ 执行结算 ▸", onclick: function () {
+      if (isSettled(state, step)) {
+        render();
+        return;
+      }
       E.settleAutoEvent(state, step);
       state.stepSettled = { stepId: step.id, skip: 0 };
       save();
@@ -789,9 +931,9 @@
     card.appendChild(U.el("h4", { text: "政府治理目标" }));
     const goals = U.el("div", {});
     goals.appendChild(U.el("span", { class: "goal-chip " + (fin.goals.ecology.achieved ? "ok" : "bad"),
-      text: (fin.goals.ecology.achieved ? "✔" : "✘") + " 全社会生态 " + fin.totalEcology + " / 240" }));
+      text: (fin.goals.ecology.achieved ? "✔" : "✘") + " 全社会生态 " + E.fmtNumber(fin.totalEcology) + " / 240" }));
     goals.appendChild(U.el("span", { class: "goal-chip " + (fin.goals.economy.achieved ? "ok" : "bad"),
-      text: (fin.goals.economy.achieved ? "✔" : "✘") + " 全社会经济 " + fin.totalEconomy + " / 320" }));
+      text: (fin.goals.economy.achieved ? "✔" : "✘") + " 全社会经济 " + E.fmtNumber(fin.totalEconomy) + " / 320" }));
     goals.appendChild(U.el("span", { class: "goal-chip " + (fin.goals.finance.achieved ? "ok" : "bad"),
       text: (fin.goals.finance.achieved ? "✔" : "✘") + " 财政 " + fin.govFinance + " / ≥0" }));
     card.appendChild(goals);
@@ -823,12 +965,12 @@
       const danger = c.economy <= 20 || c.ecology <= 20;
       const mini = U.el("div", { class: "company-mini" + (danger ? " danger" : "") });
       mini.appendChild(U.el("h5", {}, c.name + (danger ? " ⚠" : ""),
-        U.el("span", { class: "num", text: (c.economy + c.ecology) + " 分" })));
+        U.el("span", { class: "num", text: E.fmtNumber(c.economy + c.ecology) + " 分" })));
       const vals = U.el("div", { class: "vals" });
       vals.appendChild(U.el("span", { text: "经济 " }));
-      vals.appendChild(U.el("b", { class: c.economy <= 20 ? "delta-neg" : "", text: String(c.economy) }));
+      vals.appendChild(U.el("b", { class: c.economy <= 20 ? "delta-neg" : "", text: E.fmtNumber(c.economy) }));
       vals.appendChild(U.el("span", { text: "　生态 " }));
-      vals.appendChild(U.el("b", { class: c.ecology <= 20 ? "delta-neg" : "", text: String(c.ecology) }));
+      vals.appendChild(U.el("b", { class: c.ecology <= 20 ? "delta-neg" : "", text: E.fmtNumber(c.ecology) }));
       mini.appendChild(vals);
       const assets = U.el("div", { class: "assets" });
       E.ASSET_KEYS.forEach(k => {
@@ -843,7 +985,19 @@
     // 政府财政
     const gCard = U.el("div", { class: "gov-mini" });
     gCard.appendChild(U.el("h5", { style: "margin:0 0 4px;font-size:14px", text: state.government.name + " · 财政" }));
-    gCard.appendChild(U.el("div", { class: "finance", text: String(state.government.finance) }));
+    gCard.appendChild(U.el("div", { class: "finance", text: E.fmtNumber(state.government.finance) }));
+    const final = E.computeFinal(state);
+    const totals = U.el("div", { class: "goal-totals" });
+    [
+      { label: "总生态", value: final.totalEcology, target: final.goals.ecology.target },
+      { label: "总经济", value: final.totalEconomy, target: final.goals.economy.target },
+      { label: "财政目标", value: final.govFinance, target: final.goals.finance.target },
+    ].forEach(item => {
+      totals.appendChild(U.el("div", { class: "goal-total" + (item.value >= item.target ? " ok" : "") },
+        U.el("span", { text: item.label }),
+        U.el("b", { class: "num", text: E.fmtNumber(item.value) + " / 目标 " + item.target })));
+    });
+    gCard.appendChild(totals);
     col.appendChild(gCard);
 
     // 最近日志
@@ -867,8 +1021,8 @@
     const body = U.el("div", {});
     body.appendChild(U.el("div", { class: "rescue-info" },
       U.el("p", {}, "⚠ ", U.el("strong", { text: c.name }), " 经济值降至 " + p.economy + "（≤ 20），濒临破产"),
-      U.el("p", { text: "救助方案：企业经济 +10，政府财政 -10" }),
-      U.el("p", { text: "当前政府财政：" + state.government.finance + (state.government.finance < 10 ? "（不足以支付！）" : "") })));
+      U.el("p", { text: "救助方案：企业经济 +10，企业生态 -10，政府财政 -10" }),
+      U.el("p", { text: "当前政府财政：" + E.fmtNumber(state.government.finance) + (state.government.finance < 10 ? "（不足以支付！）" : "") })));
     const reason = U.el("input", { type: "text", placeholder: "决策理由（选填，记入日志）", style: "width:100%" });
     body.appendChild(reason);
 
@@ -884,7 +1038,7 @@
           save(); render();
           closeAndChain(); // 可能还有下一家
         } },
-        { label: "发放救助 +10", tone: "btn-danger", closes: false, onClick: function () {
+        { label: "发放救助 +10 / 生态 -10", tone: "btn-danger", closes: false, onClick: function () {
           const r = E.resolveRescue(state, true, reason.value.trim());
           if (!r.ok) { U.toast(r.error, "warn"); return false; }
           save(); render();

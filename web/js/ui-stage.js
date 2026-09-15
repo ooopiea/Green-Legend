@@ -117,16 +117,22 @@
     hud.month = U.el("span", { class: "th-hud-month" });
     hud.govWrap = U.el("span", { class: "th-hud-gov" }, "财政 ",
       hud.govBar = U.el("span", { class: "mini-bar" }, U.el("i")),
-      hud.govNum = U.el("b", { text: "—" }));
+      hud.govNum = U.el("b", { text: "—" }),
+      hud.govTotals = U.el("span", { class: "th-hud-totals" },
+        hud.totalEcology = U.el("span", { class: "th-total", text: "总生态 —/240" }),
+        hud.totalEconomy = U.el("span", { class: "th-total", text: "总经济 —/320" }),
+        hud.financeGoal = U.el("span", { class: "th-total", text: "财政目标 ≥0" })));
     hud.comps = U.el("span", { class: "th-hud-comps" });
 
     hudEl = U.el("div", { class: "th-hud" },
-      hud.month,
-      hud.govWrap,
+      U.el("div", { class: "th-hud-meta" },
+        hud.month,
+        hud.govWrap,
+        hud.risk,
+        U.el("span", { class: "spacer" })),
       hud.comps,
-      hud.risk,
-      U.el("span", { class: "spacer" }),
-      U.el("span", { class: "th-hud-qr", text: "📱 扫码观战看详情" }));
+
+    );
 
     veilEl = U.el("div", { class: "th-veil" },
       U.el("h2", { text: "《绿神话》" }),
@@ -209,21 +215,37 @@
     }
     // 财政（数字滚动 + 微缩条）
     const fin = state.government.finance;
+    const final = E.computeFinal(state);
     hud.govWrap.classList.toggle("danger", fin < 30);
     hud.govBar.firstChild.style.width = Math.max(0, Math.min(100, fin)) + "%";
     tweenNumber(hud.govNum, "fin", fin);
+    hud.totalEcology.textContent = "总生态 " + E.fmtNumber(final.totalEcology) + "/" + final.goals.ecology.target;
+    hud.totalEcology.classList.toggle("ok", final.goals.ecology.achieved);
+    hud.totalEconomy.textContent = "总经济 " + E.fmtNumber(final.totalEconomy) + "/" + final.goals.economy.target;
+    hud.totalEconomy.classList.toggle("ok", final.goals.economy.achieved);
+    hud.financeGoal.textContent = "财政目标 ≥" + final.goals.finance.target;
+    hud.financeGoal.classList.toggle("ok", final.goals.finance.achieved);
     // 三家企业经济/生态双值
     let best = -Infinity;
     state.companies.forEach(c => { const t = c.economy + c.ecology; if (t > best) best = t; });
-    const csSig = state.companies.map(c => c.name).join("|");
+    const csSig = state.companies
+      .map(c => c.name + ":" + assetsSignature(c.assets))
+      .join("|");
     if (csSig !== lastCompsSig) {
       lastCompsSig = csSig;
       U.clear(hud.comps);
       state.companies.forEach(c => {
-        hud.comps.appendChild(U.el("span", { class: "th-comp", "data-id": c.id },
-          c.name + " ",
-          U.el("b", { class: "cv-e", text: String(c.economy) }), "/",
-          U.el("b", { class: "cv-c", text: String(c.ecology) })));
+        hud.comps.appendChild(U.el("div", { class: "th-comp", "data-id": c.id },
+          U.el("div", { class: "th-comp-head" },
+            U.el("span", { class: "th-comp-name", text: c.name }),
+            U.el("div", { class: "th-assets" }, assetTags(c.assets))),
+          U.el("div", { class: "th-values" },
+            U.el("div", { class: "th-value" },
+              U.el("small", { text: "经济" }),
+              U.el("b", { class: "cv-e", text: E.fmtNumber(c.economy) })),
+            U.el("div", { class: "th-value" },
+              U.el("small", { text: "生态" }),
+              U.el("b", { class: "cv-c", text: E.fmtNumber(c.ecology) })))));
       });
     }
     state.companies.forEach(c => {
@@ -244,6 +266,31 @@
         ? "⚠ " + risky.map(c => c.name + (c.economy <= 20 && c.ecology <= 20 ? "（经济/生态）" : c.economy <= 20 ? "（经济）" : "（生态）")).join(" / ")
         : "";
     }
+  }
+
+  function assetsSignature(assets) {
+    const owned = assets || {};
+    return Object.keys(EV.ASSET_META).map(id => owned[id] ? "1" : "0").join("");
+  }
+
+  function assetTags(assets) {
+    const owned = assets || {};
+    const shortNames = {
+      rooftopPV: "光伏",
+      battery: "蓄电池",
+      oneWayCharger: "单向桩",
+      twoWayCharger: "双向桩",
+    };
+    return Object.keys(EV.ASSET_META)
+      .filter(id => owned[id])
+      .map(id => {
+        const meta = EV.ASSET_META[id];
+        return U.el("span", {
+          class: "th-asset",
+          text: meta.icon + " " + (shortNames[id] || meta.name),
+          title: meta.name,
+        });
+      });
   }
 
   /* ---------- 浮动结算数字（比对上次值，通用覆盖各类结算）---------- */
@@ -279,7 +326,7 @@
     const from = numShown[key];
     if (from === undefined || from === to) {
       numShown[key] = to;
-      el.textContent = String(to);
+      el.textContent = E.fmtNumber(to);
       return;
     }
     numShown[key] = to;

@@ -20,6 +20,10 @@
 
   function fmt(n) { return n > 0 ? "+" + n : String(n); }
 
+  function fmtNumber(n) {
+    return String(Math.round((Number(n) + Number.EPSILON) * 100) / 100);
+  }
+
   function findStep(EV, id) {
     for (const m of EV.MONTHS) {
       for (const s of m.steps) {
@@ -57,6 +61,7 @@
     "m11-funding": [37, 37],
     "m11-ecoPolicy": [38, 39],
     "m12-smog": [40, 41],
+    "m12-lowEfficiency": [41, 41],
     "final-awards": [42, 42],
   };
 
@@ -118,24 +123,36 @@
     { n: 23, kind: "m6Ans", step: "m6-pvSubsidy", title: "6月 光伏补贴 · 答案" },
     { n: 24, kind: "q", step: "m7-charger", title: "7月 充电桩决策" },
     { n: 25, kind: "ans", step: "m7-charger", title: "7月 充电桩 · 答案" },
-    { n: 26, kind: "q", step: "m8-battery", title: "8月 并网受限应对" },
-    { n: 27, kind: "ans", step: "m8-battery", title: "8月 并网受限 · 答案" },
+    { n: 26, kind: "q", step: "m8-battery", title: "8月 AI 用电与储能应对" },
+    { n: 27, kind: "ans", step: "m8-battery", title: "8月 AI 用电与储能 · 答案" },
     { n: 28, kind: "govq", step: "m8-ecoPolicy", title: "8月 生态奖惩" },
     { n: 29, kind: "ecoAns", step: "m8-ecoPolicy", month: 8, title: "8月 生态奖惩 · 答案" },
-    { n: 30, kind: "typhoon", step: "m9-typhoonPV", title: "9月 台风掷骰" },
+    { n: 30, kind: "typhoon", step: "m9-typhoonPV", title: "9月 台风「白海豚」掷骰" },
     { n: 31, kind: "govq", step: "m9-blackout", title: "9月 停电应对" },
     { n: 32, kind: "m9Ans", step: "m9-blackout", title: "9月 停电应对 · 答案" },
     { n: 33, kind: "selfPower", step: "m9-selfPower", title: "9月 自备电力加成" },
-    { n: 34, kind: "oil", step: "m10-oil", title: "10月 油价冲击" },
-    { n: 35, kind: "q", step: "m11-apply", title: "11月 零碳园区申报" },
+    { n: 34, kind: "oil", step: "m10-oil", title: "10月 霍尔木兹海峡危机与油价飙升" },
+    { n: 35, kind: "q", step: "m11-apply", title: "11月 零碳园区申报与碳边境机制" },
     { n: 36, kind: "m11Ans", step: "m11-apply", title: "11月 申报 · 答案" },
     { n: 37, kind: "funding", step: "m11-funding", title: "11月 试点资金" },
     { n: 38, kind: "govq", step: "m11-ecoPolicy", title: "11月 生态奖惩" },
     { n: 39, kind: "ecoAns", step: "m11-ecoPolicy", month: 11, title: "11月 生态奖惩 · 答案" },
-    { n: 40, kind: "q", step: "m12-smog", title: "12月 雾霾限产" },
-    { n: 41, kind: "ans", step: "m12-smog", title: "12月 雾霾限产 · 答案" },
+    { n: 40, kind: "q", step: "m12-smog", title: "12月 空气质量与负荷管理" },
+    { n: 41, kind: "ans", step: "m12-smog", title: "12月 空气质量与负荷管理 · 答案" },
     { n: 42, kind: "final", title: "年终 · 政府颁奖环节" },
   ];
+
+  /* 页面主题：企业日常经营 / 政府决策 / 突发事件；课前与年终保持中性风格 */
+  const COMPANY_PAGES = [9, 10, 11, 12, 15, 16, 20, 21, 24, 25, 26, 27, 35, 36, 40, 41];
+  const GOV_PAGES = [13, 14, 18, 22, 23, 28, 29, 31, 32, 37, 38, 39];
+  const EMERGENCY_PAGES = [17, 19, 30, 33, 34];
+
+  function pageTheme(n) {
+    if (COMPANY_PAGES.indexOf(n) >= 0) return "company";
+    if (GOV_PAGES.indexOf(n) >= 0) return "government";
+    if (EMERGENCY_PAGES.indexOf(n) >= 0) return "emergency";
+    return "neutral";
+  }
 
   /* ============================================================
      以下为 DOM 渲染（仅浏览器）
@@ -199,7 +216,11 @@
     const state = ctx.state || null;
     const EV = ctx.EV || (typeof GreenEvents !== "undefined" ? GreenEvents : null);
     const meta = SLIDES[n - 1] || SLIDES[0];
-    const canvas = el("div", { class: "sl-canvas" + (n <= 8 ? " sl-pre" : ""), "data-slide-n": n });
+    const canvas = el("div", {
+      class: "sl-canvas theme-" + pageTheme(n) + (n <= 8 ? " sl-pre" : ""),
+      "data-slide-n": n,
+      "data-theme": pageTheme(n),
+    });
 
     const stepInfo = meta.step && EV ? findStep(EV, meta.step) : null;
     const cur = state && EV ? currentStepOf(state, EV) : null;
@@ -270,7 +291,7 @@
     rich(body,
       "在每个事件中，各企业将【独立】做出一个关键决策，各企业的【生态】【经济】两个指标将有对应变动，属性增减将在组内做出决定后展示。　游戏目标：最大化你的经济收益和生态影响力！经济和生态总值最高的企业将成为游戏的赢家。");
     canvas.appendChild(body);
-    canvas.appendChild(img("camp-companies.png", "sl-img", "right:56px;top:218px;width:614px;"));
+    canvas.appendChild(img("camp-companies.png", "sl-img", "right:50px;top:218px;width:540px;"));
     canvas.appendChild(img("logo.png", "sl-logo-sm", "right:30px;bottom:22px;"));
   }
 
@@ -285,7 +306,7 @@
       el("div", { class: "sl-mname font-serif", text: "经济" }));
     rich(right, "企业可以通过生产活动来提升【经济值】，以维持盈利状态。初始值：60。当【经济值】≤20 时，企业濒临破产，可得到一次政府补贴，【经济值】+10（但机会只有一次哦！）");
     canvas.appendChild(el("div", { class: "sl-mcards" }, left, right));
-    canvas.appendChild(img("logo.png", "sl-logo-sm", "right:30px;bottom:22px;"));
+    canvas.appendChild(img("logo.png", "sl-logo-sm", "right:30px;top:130px;"));
   }
 
   function buildCampGov(canvas) {
@@ -348,16 +369,16 @@
 
   /* 每月配图（位置按 PPT 复刻） */
   const Q_MEDIA = {
-    "m2-envelope": ["envelope.png", "left:170px;bottom:26px;width:430px;"],
-    "m5-pv": ["pv.jpeg", "right:50px;bottom:40px;width:470px;"],
-    "m7-charger": ["charger-twoway.jpeg", "right:30px;bottom:30px;width:420px;"],
+    "m2-envelope": ["envelope.png", "right:50px;top:170px;width:430px;"],
+    "m5-pv": ["pv.jpeg", "right:50px;top:185px;width:440px;"],
+    "m7-charger": ["charger-twoway.jpeg", "right:40px;top:185px;width:380px;"],
     "m11-apply": ["zero-carbon-park.png", "right:50px;top:236px;width:360px;height:380px;"],
   };
 
   function buildQuestion(canvas, stepInfo, state, atStep, revealed) {
     if (!stepInfo) return;
     const step = stepInfo.step;
-    head(canvas, stepInfo.month, step.prompt, false);
+    head(canvas, stepInfo.month, step.stagePrompt || step.prompt, false);
     const media = Q_MEDIA[step.id];
     const opts = el("div", { class: "sl-opts" + (media ? " narrow" : "") + (step.id === "m11-apply" ? " qlong" : "") });
     (step.options || []).forEach(function (o) {
@@ -369,7 +390,7 @@
     });
     canvas.appendChild(opts);
     if (media) canvas.appendChild(img(media[0], "sl-img", media[1]));
-    if (step.id === "m7-charger") canvas.appendChild(img("charger-oneway.png", "sl-img", "right:400px;bottom:60px;width:300px;opacity:.95;"));
+    if (step.id === "m7-charger") canvas.appendChild(img("charger-oneway.png", "sl-img", "right:40px;top:452px;width:215px;opacity:.95;"));
 
     /* 提交状态芯片：不泄选择 */
     if (state && atStep && !revealed) {
@@ -404,7 +425,7 @@
     if (!stepInfo) return;
     const step = stepInfo.step;
     const lit = !!(state && atStep && revealed);
-    head(canvas, stepInfo.month, step.prompt, true);
+    head(canvas, stepInfo.month, step.stagePrompt || step.prompt, true);
 
     if (step.id === "m3-teambuilding") {
       canvas.appendChild(el("div", { class: "sl-banner", text: "董事长的签证被拒了，团建活动改为去北京环球影城" }));
@@ -413,10 +434,11 @@
     /* 版式带按题面行数下移：m3 横幅之下、长题面（3 行）之下 */
     let rowsCls = "sl-rows";
     if (step.id === "m3-teambuilding") rowsCls += " after-banner";
-    else if (step.id === "m8-battery" || step.id === "m12-smog") rowsCls += " low";
+    else if (["m5-pv", "m7-charger", "m8-battery", "m12-smog"].indexOf(step.id) >= 0) rowsCls += " low";
     const rows = el("div", { class: rowsCls });
-    rows.appendChild(ansHeader());
+    rows.appendChild(ansHeader(step.id === "m3-teambuilding" ? "即时经济" : "每月经济"));
     (step.options || []).forEach(function (o) {
+      const economyValue = (o.monthly || 0) + (o.economy || 0);
       const monthlyBadge = !!(o.recurring && o.monthly);
       rows.appendChild(el("div", { class: "sl-row" + (lit ? " lit" : "") },
         el("div", { class: "sl-row-label" },
@@ -424,18 +446,18 @@
           el("span", { class: "sl-row-name", text: o.label }),
           pickChips(state, step, o.id, lit)),
         el("div", { class: "sl-row-cell" }, iconNum("metric-econ-sm.png", o.cost || 0, lit, false)),
-        el("div", { class: "sl-row-cell" }, iconNum("metric-econ-sm.png", o.monthly || 0, lit, monthlyBadge)),
+        el("div", { class: "sl-row-cell" }, iconNum("metric-econ-sm.png", economyValue, lit, monthlyBadge)),
         el("div", { class: "sl-row-cell" }, iconNum("metric-eco-sm.png", o.ecology || 0, lit, false))));
     });
     canvas.appendChild(rows);
     if (!lit) canvas.appendChild(el("div", { class: "sl-center-note", text: "等待统一揭示" }));
   }
 
-  function ansHeader() {
+  function ansHeader(economyLabel) {
     return el("div", { class: "sl-row sl-rowhead" },
       el("div", { class: "sl-row-label", text: "选项" }),
       el("div", { class: "sl-row-cell", text: "投资" }),
-      el("div", { class: "sl-row-cell", text: "每月经济" }),
+      el("div", { class: "sl-row-cell", text: economyLabel || "每月经济" }),
       el("div", { class: "sl-row-cell", text: "生态" }));
   }
 
@@ -449,17 +471,19 @@
     head(canvas, stepInfo.month, step.prompt, false);
     const opts = el("div", { class: "sl-opts gov" });
     (step.government.options || []).forEach(function (o, i) {
+      const childNames = (o.choices || []).map(function (child) { return child.key + " " + child.label; }).join(" / ");
+      const detail = (o.detail || "").replace(/【|】/g, "") + (childNames ? "（" + childNames + "）" : "");
       opts.appendChild(el("div", { class: "sl-opt" },
         el("span", { class: "sl-key", text: String.fromCharCode(65 + i) }),
         el("div", { class: "sl-opt-body" },
           el("div", { class: "sl-opt-label", text: o.label }),
-          el("div", { class: "sl-opt-detail", text: (o.detail || "").replace(/【|】/g, "") }))));
+          el("div", { class: "sl-opt-detail", text: detail }))));
     });
     canvas.appendChild(opts);
     if (step.id !== "m9-blackout") {
       canvas.appendChild(img("gov-decor.png", "sl-img", "right:36px;bottom:24px;width:380px;"));
     } else {
-      canvas.appendChild(img("grid-damage.jpeg", "sl-img", "right:40px;top:200px;width:420px;"));
+      canvas.appendChild(img("grid-damage.jpeg", "sl-img", "right:50px;top:170px;width:350px;"));
       canvas.appendChild(img("gov-decor.png", "sl-img", "right:36px;bottom:24px;width:380px;"));
     }
     if (state && atStep) {
@@ -486,37 +510,50 @@
   function buildEcoAnswer(canvas, stepInfo, month, state, settled) {
     if (!stepInfo) return;
     head(canvas, stepInfo.month, stepInfo.step.prompt, true);
-    /* 所选力度：从 policyLog 取（ecoBothLight=±10 / ecoBothHeavy=±20） */
-    let chosen = null;
+    let chosenId = null;
     if (state) {
-      const logs = state.government.policyLog.filter(function (p) { return p.month === month && p.policyId.indexOf("ecoBoth") >= 0; });
-      if (logs.length) {
-        const pid = logs[logs.length - 1].policyId;
-        chosen = pid.indexOf("Light") >= 0 ? 10 : 20;
-      }
+      const logs = state.government.policyLog.filter(function (p) {
+        return p.month === month && /planting|reward/.test(p.policyId);
+      });
+      if (logs.length) chosenId = logs[logs.length - 1].policyId;
     }
-    const on = function (v) { return settled && chosen === v ? " picked" : ""; };
+    const options = stepInfo.step.government.options || [];
+    const planting = options.find(function (o) { return o.choices; }) || {};
+    const reward = options.find(function (o) { return !o.choices; }) || {};
+    const lightId = ((planting.choices || []).find(function (o) { return o.key === "A1"; }) || {}).id;
+    const heavyId = ((planting.choices || []).find(function (o) { return o.key === "A2"; }) || {}).id;
+    const isLight = chosenId === lightId;
+    const isHeavy = chosenId === heavyId;
+    const isReward = chosenId === reward.id;
     const ext = state ? ecoExtrema(state) : null;
-    const orb = function (v, lab) {
-      return el("span", { class: "sl-orb" + on(Math.abs(v)) },
-        iconNum("metric-econ-sm.png", v, settled && chosen === Math.abs(v), false),
-        el("span", { class: "sl-orb-txt", text: lab }));
+
+    const optionOrb = function (key, econ, eco, picked, label) {
+      return el("span", { class: "sl-orb" + (picked ? " picked" : "") },
+        iconNum("metric-econ-sm.png", econ, picked, false),
+        iconNum("metric-eco-sm.png", eco, picked, false),
+        el("span", { class: "sl-orb-txt", text: key + " · " + label }));
     };
 
     canvas.appendChild(el("div", { class: "sl-ecoblocks" },
       el("div", { class: "sl-ecoblock" },
-        el("div", { class: "sl-eco-title", text: "对生态值最低的企业罚款，用于植树造林" }),
+        el("div", { class: "sl-eco-title", text: "A · 罚款用于企业植树造林" }),
         el("div", { class: "sl-eco-chips" },
-          orb(-10, "从轻"), el("span", { class: "sl-or-sep", text: "或" }), orb(-20, "从重")),
-        ext && settled ? el("div", { class: "sl-eco-who neg", text: "最低：" + ext.lowest.join("、") }) : null),
+          optionOrb("A1", -10, +10, settled && isLight, "从轻"),
+          el("span", { class: "sl-or-sep", text: "或" }),
+          optionOrb("A2", -20, +20, settled && isHeavy, "从重")),
+        ext && settled && (isLight || isHeavy) ? el("div", { class: "sl-eco-who neg", text: "最低：" + ext.lowest.join("、") }) : null),
       el("div", { class: "sl-eco-block-sep" }),
       el("div", { class: "sl-ecoblock" },
-        el("div", { class: "sl-eco-title", text: "对生态值最高的企业奖励" }),
+        el("div", { class: "sl-eco-title", text: "B · 奖励生态值高的企业" }),
         el("div", { class: "sl-eco-chips" },
-          orb(10, "从轻"), el("span", { class: "sl-or-sep", text: "或" }), orb(20, "从重")),
-        ext && settled ? el("div", { class: "sl-eco-who pos", text: "最高：" + ext.highest.join("、") }) : null)));
+          optionOrb("B", +10, 0, settled && isReward, "奖励 +10")),
+        ext && settled && isReward ? el("div", { class: "sl-eco-who pos", text: "最高：" + ext.highest.join("、") }) : null)));
 
-    canvas.appendChild(el("div", { class: "sl-center-note", text: settled ? "力度一致 · 同时生效 · 财政净变动 0" : "请政府决定罚款和奖励力度" }));
+    canvas.appendChild(el("div", { class: "sl-center-note", text: settled
+      ? (isReward ? "已选 B · 企业经济 +10 · 政府财政 -10"
+        : isHeavy ? "已选 A2 · 企业经济 -20 · 生态 +20 · 政府财政 +20"
+        : "已选 A1 · 企业经济 -10 · 生态 +10 · 政府财政 +10")
+      : "请政府先选择 A 或 B；选择 A 后继续选择力度" }));
   }
 
   /* ============================================================
@@ -611,7 +648,7 @@
         el("div", { class: "sl-eco-title", text: "【对于已安装光伏的企业】" }),
         el("div", { class: "sl-eco-chips" },
           el("span", { class: "sl-orb" + (sub && settled ? " picked" : "") },
-            iconNum("metric-econ-sm.png", 2, sub && settled, true), el("span", { class: "sl-orb-txt", text: "每月经济" }))),
+            iconNum("metric-econ-sm.png", 6, sub && settled, false), el("span", { class: "sl-orb-txt", text: "一次性经济" }))),
         sub && settled && pvNames.length ? el("div", { class: "sl-eco-who pos", text: "受益：" + pvNames.join("、") }) : null),
       el("div", { class: "sl-eco-block-sep" }),
       el("div", { class: "sl-ecoblock" },
@@ -620,33 +657,40 @@
           el("span", { class: "sl-orb" }, iconNum("metric-econ-sm.png", 0, false, false), el("span", { class: "sl-orb-txt", text: "不受影响" }))))));
 
     canvas.appendChild(el("div", { class: "sl-center-note", text: settled
-      ? (sub ? "政府财政 6 月一次性每家 -2；企业侧此后每月 +2（光伏自身收益），持续到 12 月" : "政府决定不进行补贴")
+      ? (sub ? "政府财政 6 月一次性每家 -6；企业一次性 +6，不再持续补贴" : "政府决定不进行补贴")
       : "请政府决策" }));
   }
 
   /* ============================================================
-     30 页：台风掷骰
+     30 页：台风「白海豚」掷骰
      ============================================================ */
 
   function buildTyphoon(canvas, stepInfo, state, settled) {
     canvas.appendChild(el("div", { class: "sl-month num", text: "9月" }));
-    canvas.appendChild(el("div", { class: "sl-big-title sm font-serif", text: "突发事件：台风「塔巴」登陆 !!!" }));
-    const rows = el("div", { class: "sl-rows left" });
+    canvas.appendChild(el("div", { class: "sl-big-title sm font-serif", text: "突发事件：台风「白海豚」来袭 !!!" }));
+    canvas.appendChild(el("div", {
+      class: "sl-note",
+      style: "top:112px;bottom:auto;max-width:560px;",
+      text: "2026 年，北半球极端高温反复出现：欧洲多国经历创纪录热浪，印度用电负荷屡创新高。"
+    }));
+    const rows = el("div", { class: "sl-rows left m9dice" });
     const step = stepInfo ? stepInfo.step : null;
     const res = step ? step.results : [];
     const caps = ["A", "B"];
     res.forEach(function (r, i) {
-      const label = i === 0 ? "A · 屋顶光伏不堪一击，被台风连根拔起，修缮费用" : "B · 光伏板坚如磐石，成功抵御狂风，设备完好无损";
+      const label = i === 0 ? "A · 屋顶光伏被强风损毁，需支付修缮费用" : "B · 光伏支架与组件完好，设备无损";
       rows.appendChild(el("div", { class: "sl-row" + (settled ? " lit" : "") },
         el("div", { class: "sl-row-label", text: label }),
         el("div", { class: "sl-row-cell" }, iconNum("metric-econ-sm.png", r.economy, settled, false))));
     });
     canvas.appendChild(rows);
-    /* 掷骰规则注置于表格下方常规带（底部带与骰子芯片换行区互压） */
-    canvas.appendChild(el("div", { class: "sl-note", style: "top:400px;bottom:auto;", text: "请【拥有屋顶光伏】的企业掷骰子决定：结果 1、3、5 → A；2、4、6 → B" }));
     const chips = diceChips(state, "m9-typhoonPV", 9);
+    /* 结果标签可见时隐藏规则注，避免多行标签挤压版面 */
+    if (!chips) {
+      canvas.appendChild(el("div", { class: "sl-note", style: "top:436px;bottom:auto;", text: "请【拥有屋顶光伏】的企业掷骰子决定：结果 1、3、5 → A；2、4、6 → B" }));
+    }
     if (chips) canvas.appendChild(chips);
-    canvas.appendChild(img("typhoon.jpeg", "sl-img", "right:50px;top:120px;width:440px;border-radius:16px;"));
+    canvas.appendChild(img("typhoon.jpeg", "sl-img", "right:50px;top:120px;width:440px;height:155px;object-position:center top;border-radius:16px;"));
   }
 
   /* ============================================================
@@ -690,7 +734,7 @@
   function buildSelfPower(canvas, stepInfo, state, settled) {
     canvas.appendChild(el("div", { class: "sl-month num", text: "9月" }));
     const p = el("div", { class: "sl-prompt" });
-    rich(p, "台风「塔巴」重创本市，电力设施大规模损毁，预计电网中断一个月。面对这场危机，企业：");
+    rich(p, "2026 年，北半球极端高温反复出现，欧洲多国经历创纪录热浪，印度用电负荷屡创新高；随后台风「白海豚」重创本市，电力设施受损，预计供电阶段性中断。企业：");
     canvas.appendChild(p);
     canvas.appendChild(el("div", { class: "sl-ecoblocks" },
       el("div", { class: "sl-ecoblock" },
@@ -724,7 +768,7 @@
 
   function buildOil(canvas, stepInfo, state, settled) {
     canvas.appendChild(el("div", { class: "sl-month num", text: "10月" }));
-    canvas.appendChild(el("div", { class: "sl-prompt", text: "俄乌战争导致全球供应链受到冲击，国际油价大幅飙升" }));
+    canvas.appendChild(el("div", { class: "sl-prompt", text: "俄乌战争后的能源供应链仍然脆弱；伊朗封锁霍尔木兹海峡，国际油价大幅飙升" }));
     canvas.appendChild(el("div", { class: "sl-ecoblocks" },
       el("div", { class: "sl-ecoblock" },
         el("div", { class: "sl-eco-title", text: "【已安装电动车充电桩】的企业" }),
@@ -757,7 +801,7 @@
     if (!stepInfo) return;
     const step = stepInfo.step;
     const lit = !!(state && atStep && revealed);
-    head(canvas, 11, step.prompt, true);
+    head(canvas, 11, step.stagePrompt || step.prompt, true);
 
     /* 申报意图 */
     if (lit) {
@@ -861,15 +905,15 @@
       rk.appendChild(el("div", { class: "sl-rank-row" + (i === 0 ? " first" : "") },
         el("span", { class: "sl-rank-pos font-serif", text: ["第一名", "第二名", "第三名"][i] }),
         el("span", { class: "sl-rank-name", text: r.name }),
-        el("span", { class: "sl-rank-vals num", text: "经济 " + r.economy + " · 生态 " + r.ecology }),
-        el("span", { class: "sl-rank-total num", text: r.total + " 分" })));
+        el("span", { class: "sl-rank-vals num", text: "经济 " + fmtNumber(r.economy) + " · 生态 " + fmtNumber(r.ecology) }),
+        el("span", { class: "sl-rank-total num", text: fmtNumber(r.total) + " 分" })));
     });
     canvas.appendChild(rk);
 
     canvas.appendChild(el("div", { class: "sl-goals" },
-      goalChip("全社会生态≥240：", totalEco, totalEco >= 240),
-      goalChip("全社会经济≥320：", totalEcon, totalEcon >= 320),
-      goalChip("财政不为负：", fin, fin >= 0)));
+      goalChip("全社会生态≥240：", fmtNumber(totalEco), totalEco >= 240),
+      goalChip("全社会经济≥320：", fmtNumber(totalEcon), totalEcon >= 320),
+      goalChip("财政不为负：", fmtNumber(fin), fin >= 0)));
 
     const awards = state.government.awards || [];
     if (awards.length) {

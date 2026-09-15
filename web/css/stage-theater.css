@@ -13,13 +13,17 @@
   background: var(--ink);
 }
 
-/* ---------- 顶部 HUD 细条 ---------- */
+/* ---------- 顶部 HUD 记分区 ---------- */
 .th-hud {
-  display: flex; align-items: center; gap: 18px;
-  padding: 0 26px; height: 64px; flex: 0 0 64px;
+  display: flex; flex-direction: column; align-items: stretch; gap: 10px;
+  padding: 12px 24px 14px; min-height: 132px; flex: 0 0 auto;
   border-bottom: 2px solid rgba(47, 157, 129, 0.35);
-  background: rgba(20, 30, 26, 0.92);
+  background:
+    linear-gradient(180deg, rgba(31, 45, 39, 0.96), rgba(20, 30, 26, 0.95));
   white-space: nowrap; overflow: hidden;
+}
+.th-hud-meta {
+  display: flex; align-items: center; gap: 18px; min-height: 34px;
 }
 .th-hud-month {
   font-family: "Noto Serif SC", serif;
@@ -43,9 +47,54 @@
 }
 .th-hud-gov.danger .mini-bar i { background: var(--cinnabar); }
 .th-hud-gov.danger b { color: #ff7b6b; }
-.th-hud-comps { display: flex; gap: 16px; align-items: baseline; }
-.th-comp { font-size: 18px; color: #9fb3ab; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.th-comp b { font-size: 22px; color: var(--moon); font-weight: 700; }
+.th-hud-totals {
+  display: inline-flex; align-items: center; gap: 10px;
+  padding-left: 10px; border-left: 1px solid rgba(159, 179, 171, 0.32);
+}
+.th-total { font-size: 14px; color: #b9cac2; white-space: nowrap; }
+.th-total.ok { color: #76dcb3; font-weight: 700; }
+.th-hud-comps {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px;
+}
+.th-comp {
+  display: flex; flex-direction: column; justify-content: center; gap: 8px;
+  min-width: 0; padding: 9px 14px 11px; border-radius: 12px;
+  background: rgba(22, 34, 29, 0.88);
+  border: 2px solid rgba(85, 101, 94, 0.58);
+  font-variant-numeric: tabular-nums;
+  transition: border-color 0.25s ease, box-shadow 0.25s ease, background 0.25s ease;
+}
+.th-comp.leader {
+  border-color: rgba(244, 208, 63, 0.68);
+  background: rgba(55, 47, 22, 0.55);
+  box-shadow: 0 0 18px rgba(244, 208, 63, 0.12) inset;
+}
+.th-comp.danger { border-color: rgba(192, 57, 43, 0.72); }
+.th-comp-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.th-comp-name {
+  flex: 0 1 auto; min-width: 52px; overflow: hidden;
+  font-size: 20px; font-weight: 700; color: #e8f5ee;
+  text-overflow: ellipsis; white-space: nowrap;
+}
+.th-assets { display: flex; align-items: center; gap: 5px; overflow: hidden; }
+.th-asset {
+  flex: 0 0 auto; display: inline-flex; align-items: center; gap: 3px;
+  padding: 3px 7px; border-radius: 999px;
+  background: rgba(88, 201, 169, 0.13);
+  border: 1px solid rgba(88, 201, 169, 0.38);
+  color: #95e5c8; font-size: 12px; font-weight: 700; line-height: 1.2;
+  white-space: nowrap;
+}
+.th-values { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; }
+.th-value { display: flex; align-items: baseline; gap: 8px; line-height: 1; min-width: 0; }
+.th-value small {
+  flex: 0 0 auto; font-size: 15px; font-weight: 700;
+  letter-spacing: 1px; color: #8fa39b;
+}
+.th-value b {
+  font-size: 32px; color: var(--moon); font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
 .th-comp b.cv-e { color: var(--gold-bright); }
 .th-comp b.cv-c { color: #58c9a9; }
 .th-comp.leader b { text-shadow: 0 0 1px var(--gold-bright); }
@@ -56,10 +105,26 @@
   background: rgba(192, 57, 43, 0.22); border: 1.5px solid var(--cinnabar-border);
 }
 .th-hud .spacer { flex: 1; }
-.th-hud-qr {
-  font-size: 16px; color: #7d8f88;
-  padding: 4px 12px; border-radius: 999px;
-  border: 1.5px dashed #55655e; white-space: nowrap;
+@media (max-width: 1280px) {
+  .th-hud { padding: 10px 16px 12px; gap: 8px; min-height: 122px; }
+  .th-hud-meta { gap: 12px; }
+  .th-hud-month { max-width: 360px; }
+  .th-hud-totals { gap: 8px; padding-left: 8px; }
+  .th-total { font-size: 12px; }
+  .th-hud-month b { font-size: 25px; }
+  .th-hud-risk { font-size: 14px; }
+  .th-comp { gap: 6px; padding: 8px 12px 10px; }
+  .th-comp-name { font-size: 18px; }
+  .th-asset { font-size: 11px; padding: 2px 6px; }
+  .th-value b { font-size: 30px; }
+}
+
+@media (max-width: 1024px) {
+  .th-hud { min-height: 0; height: auto; }
+  .th-hud-comps { grid-template-columns: 1fr; }
+  .th-hud-month { max-width: 42vw; }
+  .th-hud-meta { flex-wrap: wrap; row-gap: 6px; }
+  .th-hud-totals { flex-basis: 100%; padding-left: 0; border-left: 0; }
 }
 
 /* ---------- 主画面：幻灯片画箱（16:9 信箱化） ---------- */

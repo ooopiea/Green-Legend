@@ -11,14 +11,14 @@
 })(typeof self !== "undefined" ? self : this, function () {
   "use strict";
 
-  const VERSION = "1.1.0";
+  const VERSION = "1.4.0";
   const SAVE_KEY = "greentales-save";
   const SNAPSHOT_LIMIT = 30;
   const RISK_LINE = 20; // 生态/经济 ≤ 20 触发风险规则
   const RESCUE_AMOUNT = 10; // 破产救助：企业 +10 / 政府 -10
 
   const COMPANY_IDS = ["A", "B", "C"];
-  const ASSET_KEYS = ["rooftopPV", "battery", "oneWayCharger", "twoWayCharger"];
+  const ASSET_KEYS = ["rooftopPV", "battery", "oneWayCharger", "twoWayCharger", "lowEfficiency"];
 
   /* ============ 初始化 ============ */
 
@@ -42,6 +42,7 @@
             battery: false,
             oneWayCharger: false,
             twoWayCharger: false,
+            lowEfficiency: false,
           },
           totalInvestment: 0,
           streams: [], // 持续收益流 Stream[]：{id, label, amount, fromMonth}
@@ -103,7 +104,12 @@
   }
 
   function fmtDelta(n) {
-    return n > 0 ? "+" + n : String(n);
+    const shown = Math.round(n * 100) / 100;
+    return shown > 0 ? "+" + shown : String(shown);
+  }
+
+  function fmtNumber(n) {
+    return String(Math.round((Number(n) + Number.EPSILON) * 100) / 100);
   }
 
   /* ============ 月度记录 ============ */
@@ -170,6 +176,10 @@
   function checkRisks(state) {
     const events = [];
     for (const c of state.companies) {
+      if (c.economy < 0) {
+        c.economy = 0;
+        log(state, "risk", "⚠ " + c.name + " 经济值被限制在 0（不允许为负数）");
+      }
       const pre = state._preSettle && state._preSettle[c.id] ? state._preSettle[c.id] : { economy: c.economy, ecology: c.ecology };
       if (c.ecology <= RISK_LINE && pre.ecology > RISK_LINE) {
         c.ecology -= 10;
@@ -202,11 +212,13 @@
         return { ok: false, error: "财政不足以支付救助（需 ≥ " + RESCUE_AMOUNT + "）" };
       }
       c.economy += RESCUE_AMOUNT;
+      c.ecology -= 10;
       state.government.finance -= RESCUE_AMOUNT;
       const rec = ensureMonthlyRecord(state, c.id);
       rec.govDelta += RESCUE_AMOUNT;
+      rec.ecologyDelta -= 10;
       rec.notes.push("破产救助 +" + RESCUE_AMOUNT);
-      log(state, "rescue", "政府向 " + c.name + " 发放破产救助 +" + RESCUE_AMOUNT + "，政府财政 -" + RESCUE_AMOUNT + (reason ? "。理由：" + reason : ""));
+      log(state, "rescue", "政府向 " + c.name + " 发放破产救助 +" + RESCUE_AMOUNT + "，企业生态 -10，政府财政 -" + RESCUE_AMOUNT + (reason ? "。理由：" + reason : ""));
     } else {
       log(state, "rescue", "政府决定不向 " + c.name + " 发放救助" + (reason ? "。理由：" + reason : ""));
     }
@@ -216,8 +228,59 @@
 
   /* ============ 结算：企业选项 ============ */
 
-  function settleCompanyChoice(state, step, decisions) {
-    // decisions: { companyId: { optionId, retrofitId? } }
+  function companyOptionEconomyDelta(step, opt, retrofit) {
+    let delta = (opt.cost || 0) + (opt.monthly || 0) + (opt.economy || 0);
+    const followUp = step.followUp && step.followUp.effects ? step.followUp.effects[opt.id] : null;
+    if (followUp && followUp.economy) delta += followUp.economy;
+    if (retrofit) delta += (retrofit.cost || 0) + (retrofit.monthly || 0);
+    return delta;
+  }
+
+  function meetsAssetRequirements(source, company) {
+    return !source.requires || Object.keys(source.requires).every(function (key) {
+      return company.assets[key] === source.requires[key];
+    });
+  }
+
+  function validateCompanyChoice(state, step, decisions, retrofitDecisions) {
+    const optMap = {};
+    for (const opt of step.options || []) optMap[opt.id] = opt;
+    const retroMap = {};
+    for (const retrofit of step.retrofitOptions || []) retroMap[retrofit.id] = retrofit;
+
+    for (const cid of COMPANY_IDS) {
+      const decision = decisions[cid];
+      if (!decision) continue;
+      const c = getCompany(state, cid);
+      const opt = optMap[decision.optionId];
+      if (!opt) return { ok: false, error: c.name + " 选择了未知选项" };
+      if (!meetsAssetRequirements(opt, c)) {
+        return { ok: false, error: c.name + " 不满足选项资格条件：" + opt.label };
+      }
+
+      let retrofit = null;
+      const retrofitId = (retrofitDecisions && retrofitDecisions[cid]) || decision.retrofitId;
+      if (retrofitId) {
+        retrofit = retroMap[retrofitId];
+        if (!retrofit) return { ok: false, error: c.name + " 选择了未知加装项" };
+        if (!meetsAssetRequirements(retrofit, c)) {
+          return { ok: false, error: c.name + " 不满足加装资格：" + retrofit.label };
+        }
+      }
+
+      const projectedEconomy = c.economy + companyOptionEconomyDelta(step, opt, retrofit);
+      if (projectedEconomy < 0) {
+        return { ok: false, error: c.name + " 经济值不足以执行「" + opt.label + "」（执行后会低于 0）" };
+      }
+    }
+    return { ok: true };
+  }
+
+  function settleCompanyChoice(state, step, decisions, retrofitDecisions) {
+    // decisions: { companyId: { optionId, retrofitId? } }；retrofitDecisions 可单独传 11 月加装映射
+    const check = validateCompanyChoice(state, step, decisions, retrofitDecisions);
+    if (!check.ok) return check;
+
     snapshot(state, "M" + state.month + " 揭示结算前");
     markPreSettle(state);
     const optMap = {};
@@ -242,10 +305,13 @@
         c.economy += opt.monthly;
         rec.monthlyIncome += opt.monthly;
       }
-      // 持续收益流：次月起每月月初自动计入（至 12 月）
-      if (opt.monthly && opt.recurring) {
-        registerStream(state, cid, opt.id, opt.label, opt.monthly);
+      // 一次性经济变化（如 3 月团建）
+      if (opt.economy) {
+        c.economy += opt.economy;
+        rec.monthlyIncome += opt.economy;
       }
+      // 持续收益流：次月起每月月初自动计入（至 12 月）
+      if (opt.recurring && opt.monthly) registerStream(state, cid, opt.id, opt.label, opt.monthly);
       // 生态变化
       if (opt.ecology) {
         c.ecology += opt.ecology;
@@ -262,7 +328,8 @@
           if (opt.grants[k] === false) c.assets[k] = false;
         }
       }
-      let noteText = "选择 " + (opt.key || "") + " " + opt.label + "（投资 " + fmtDelta(opt.cost || 0) + "，经济 " + fmtDelta(opt.monthly || 0) + "，生态 " + fmtDelta(opt.ecology || 0) + "）";
+      const economyDelta = (opt.monthly || 0) + (opt.economy || 0);
+      let noteText = "选择 " + (opt.key || "") + " " + opt.label + "（投资 " + fmtDelta(opt.cost || 0) + "，经济 " + fmtDelta(economyDelta) + "，生态 " + fmtDelta(opt.ecology || 0) + "）";
       rec.notes.push(noteText);
       log(state, "company", "【" + state.month + "月】" + c.name + noteText);
 
@@ -282,22 +349,35 @@
       }
     }
     checkRisks(state);
+    return { ok: true };
   }
 
   /* ============ 11 月：加装（子选择）结算 ============ */
 
   function settleRetrofit(state, step, decisions) {
     // decisions: { companyId: retrofitId }（仅 applyIntent === "applyWithRetrofit" 的企业）
+    const retroMap = {};
+    for (const r of step.retrofitOptions || []) retroMap[r.id] = r;
+    for (const cid of COMPANY_IDS) {
+      const r = decisions[cid] ? retroMap[decisions[cid]] : null;
+      if (!r) continue;
+      const c = getCompany(state, cid);
+      if (!meetsAssetRequirements(r, c)) {
+        return { ok: false, error: c.name + " 不满足加装资格：" + r.label };
+      }
+      if (c.economy + (r.cost || 0) + (r.monthly || 0) < 0) {
+        return { ok: false, error: c.name + " 经济值不足以执行「" + r.label + "」（执行后会低于 0）" };
+      }
+    }
+
     snapshot(state, "M11 加装结算前");
     markPreSettle(state);
-    const retrofitMap = {};
-    for (const r of step.retrofitOptions || []) retrofitMap[r.id] = r;
     const retrofitChoices = (state.retrofitChoices = state.retrofitChoices || {});
 
     for (const cid of COMPANY_IDS) {
       const rid = decisions[cid];
       if (!rid) continue;
-      const r = retrofitMap[rid];
+      const r = retroMap[rid];
       if (!r) continue;
       const c = getCompany(state, cid);
       const rec = ensureMonthlyRecord(state, cid);
@@ -319,6 +399,7 @@
       retrofitChoices[cid] = rid;
     }
     checkRisks(state);
+    return { ok: true };
   }
 
   /* ============ 结算：政府政策 ============ */
@@ -336,8 +417,10 @@
           if (c.ecology < min) { min = c.ecology; ids = [c.id]; }
           else if (c.ecology === min) ids.push(c.id);
         }
-        return ids; // 并列全部生效（规则建议：并列同时奖惩或选一家说明理由——默认全部）
+        return ids; // 并列时全部进入平均分摊
       }
+      case "ecoLowestPlanting":
+        return policyTargets(state, { target: "ecoLowest" });
       case "ecoHighest": {
         let max = -Infinity, ids = [];
         for (const c of state.companies) {
@@ -353,18 +436,25 @@
   }
 
   function settleGovernmentPolicy(state, step, optionId, reason) {
-    const opt = step.government.options.find(function (o) { return o.id === optionId; });
+    const opt = findGovernmentOption(step.government.options, optionId);
     if (!opt) return { ok: false, error: "未知政策选项" };
     const apply = opt.apply;
 
-    /* 生态奖惩并行（ecoBoth）：处罚生态最低 + 奖励生态最高同时生效，力度一致 */
-    if (apply.target === "ecoBoth") {
-      return settleEcoBoth(state, step, opt, reason);
+    const targets = policyTargets(state, apply);
+    const isEcoExtrema = apply.target === "ecoLowest" || apply.target === "ecoLowestPlanting" || apply.target === "ecoHighest";
+    const shareCount = isEcoExtrema ? (targets.length || 1) : 1;
+    const economyShare = (apply.economy || 0) / shareCount;
+    const ecologyShare = (apply.ecology || 0) / shareCount;
+
+    if (apply.economy < 0) {
+      const insufficient = targets.map(function (cid) { return getCompany(state, cid); })
+        .filter(function (c) { return c.economy + economyShare < 0; });
+      if (insufficient.length) {
+        return { ok: false, error: insufficient.map(function (c) { return c.name; }).join("、") + " 经济值不足以执行该政策（执行后会低于 0）" };
+      }
     }
 
-    const targets = policyTargets(state, apply);
-
-    // 财政红线：6 月补贴按受影响企业数逐家扣（-2 × N）；其余政策财政为一次性总额
+    // 财政口径：生态奖惩按政策总额收付；只有光伏补贴这类明确逐家政策按家数乘算
     const perCompanyFinance = apply.target === "hasRooftopPV";
     const totalFinance = perCompanyFinance ? apply.finance * (targets.length || 1) : apply.finance;
     if (totalFinance < 0 && state.government.finance + totalFinance < 0) {
@@ -377,17 +467,18 @@
       const c = getCompany(state, cid);
       const rec = ensureMonthlyRecord(state, cid);
       if (apply.economy) {
-        c.economy += apply.economy;
-        rec.govDelta += apply.economy;
+        c.economy += economyShare;
+        rec.govDelta += economyShare;
       }
-      // 政府补贴类持续收益（6 月）：企业侧逐月计入；财政仍只在决策当月一次性扣减
-      if (opt.recurring && apply.economy) {
-        registerStream(state, cid, opt.id, opt.label, apply.economy);
+      if (apply.ecology) {
+        c.ecology += ecologyShare;
+        rec.ecologyDelta += ecologyShare;
       }
       if (perCompanyFinance) {
         state.government.finance += apply.finance; // 每家单独扣
       }
-      rec.notes.push("政府「" + opt.label + "」经济 " + fmtDelta(apply.economy));
+      const shareNote = shareCount > 1 ? "（并列 " + shareCount + " 家平均分摊）" : "";
+      rec.notes.push("政府「" + opt.label + "」经济 " + fmtDelta(economyShare) + "，生态 " + fmtDelta(ecologyShare) + shareNote);
     }
     if (!perCompanyFinance && apply.finance) {
       state.government.finance += apply.finance;
@@ -400,59 +491,22 @@
       label: opt.label,
       detail: opt.detail,
       targets: targets,
-      finance: apply.finance,
+        finance: totalFinance,
       reason: reason || "",
     });
-    log(state, "government", "【" + state.month + "月】政府执行「" + opt.label + "」，受影响企业：" + (targets.join("、") || "无") + "，财政 " + fmtDelta(totalFinance) + (reason ? "。理由：" + reason : ""));
+    const shareLog = shareCount > 1 ? "，总点数由并列企业平均分摊" : "";
+    log(state, "government", "【" + state.month + "月】政府执行「" + opt.label + "」，受影响企业：" + (targets.join("、") || "无") + shareLog + "，财政 " + fmtDelta(totalFinance) + (reason ? "。理由：" + reason : ""));
     checkRisks(state);
     return { ok: true, triggersDice: opt.triggersDice || null };
   }
 
-  /* 生态奖惩并行结算：处罚生态最低企业 + 奖励生态最高企业，力度一致、同时生效。
-     财政口径：罚入与奖出一次相抵（力度一致时净 0，财政不变）；企业侧并列时逐家生效。
-     同一企业并列最低且最高（三家并列）时，其处罚与奖励等额相抵。 */
-  function settleEcoBoth(state, step, opt, reason) {
-    const apply = opt.apply;
-    const punishIds = policyTargets(state, { target: "ecoLowest" });
-    const rewardIds = policyTargets(state, { target: "ecoHighest" });
-    const purePunish = punishIds.filter(function (id) { return rewardIds.indexOf(id) < 0; });
-    const pureReward = rewardIds.filter(function (id) { return punishIds.indexOf(id) < 0; });
-
-    // 财政红线：净支出 = 奖励总额 - 罚款总额（力度一致时为 0，不受红线限制）
-    const netFinance = Math.abs(apply.economyReward) - Math.abs(apply.economyPunish);
-    if (netFinance > 0 && state.government.finance < netFinance) {
-      return { ok: false, error: "财政红线：当前财政 " + state.government.finance + "，不足以同时执行奖惩（需 " + netFinance + "）" };
+  function findGovernmentOption(options, optionId) {
+    for (const opt of options || []) {
+      if (opt.id === optionId) return opt;
+      const child = findGovernmentOption(opt.choices, optionId);
+      if (child) return child;
     }
-
-    snapshot(state, "M" + state.month + " 政策前：" + opt.label);
-    markPreSettle(state);
-    const hit = {}; // companyId -> 净经济变动（处罚与奖励相抵后）
-    purePunish.forEach(function (id) { hit[id] = (hit[id] || 0) + apply.economyPunish; });
-    pureReward.forEach(function (id) { hit[id] = (hit[id] || 0) + apply.economyReward; });
-    for (const cid in hit) {
-      const c = getCompany(state, cid);
-      const rec = ensureMonthlyRecord(state, cid);
-      if (hit[cid]) {
-        c.economy += hit[cid];
-        rec.govDelta += hit[cid];
-      }
-      rec.notes.push("政府「" + opt.label + "」经济 " + fmtDelta(hit[cid]) + "（处罚 " + (punishIds.indexOf(cid) >= 0 ? "是" : "否") + " / 奖励 " + (rewardIds.indexOf(cid) >= 0 ? "是" : "否") + "）");
-    }
-    state.government.finance += netFinance;
-
-    state.government.policyLog.push({
-      t: new Date().toISOString(),
-      month: state.month,
-      policyId: opt.id,
-      label: opt.label,
-      detail: opt.detail,
-      targets: punishIds.concat(rewardIds).filter(function (v, i, a) { return a.indexOf(v) === i; }),
-      finance: netFinance,
-      reason: reason || "",
-    });
-    log(state, "government", "【" + state.month + "月】政府执行「" + opt.label + "」：处罚（生态最低）" + (punishIds.join("、") || "无") + "，奖励（生态最高）" + (rewardIds.join("、") || "无") + "，财政 " + fmtDelta(netFinance) + (reason ? "。理由：" + reason : ""));
-    checkRisks(state);
-    return { ok: true, triggersDice: opt.triggersDice || null };
+    return null;
   }
 
   /* ============ 11 月：资格检查与试点资金 ============ */
@@ -731,6 +785,8 @@
     ensureMonthlyRecord: ensureMonthlyRecord,
     markPreSettle: markPreSettle,
     checkRisks: checkRisks,
+    validateCompanyChoice: validateCompanyChoice,
+    policyTargets: policyTargets,
     resolveRescue: resolveRescue,
     settleCompanyChoice: settleCompanyChoice,
     settleRetrofit: settleRetrofit,
@@ -748,5 +804,6 @@
     deserialize: deserialize,
     publicSnapshot: publicSnapshot,
     fmtDelta: fmtDelta,
+    fmtNumber: fmtNumber,
   };
 });

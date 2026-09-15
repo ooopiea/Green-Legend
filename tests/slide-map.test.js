@@ -37,6 +37,7 @@ const EXPECT = {
   "m11-funding": [37, 37],
   "m11-ecoPolicy": [38, 39],
   "m12-smog": [40, 41],
+  "m12-lowEfficiency": [41, 41],
   "final-awards": [42, 42],
 };
 

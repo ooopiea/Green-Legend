@@ -214,9 +214,9 @@
 
     // 政府三目标
     const goals = U.el("div", { class: "arch-final-goal" });
-    [["ecology", "总生态", fin.totalEcology + " / 240"],
-     ["economy", "总经济", fin.totalEconomy + " / 320"],
-     ["finance", "财政结余", String(fin.govFinance)]].forEach(function (g) {
+    [["ecology", "总生态", E.fmtNumber(fin.totalEcology) + " / 240"],
+     ["economy", "总经济", E.fmtNumber(fin.totalEconomy) + " / 320"],
+     ["finance", "财政结余", E.fmtNumber(fin.govFinance)]].forEach(function (g) {
       const info = fin.goals[g[0]];
       goals.appendChild(U.el("div", { class: "arch-goal " + (info.achieved ? "ok" : "fail") },
         U.el("div", { class: "g-name", text: g[1] + "（目标 " + (g[0] === "finance" ? "≥0" : "≥" + info.target) + "）" }),

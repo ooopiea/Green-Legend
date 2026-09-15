@@ -73,24 +73,24 @@
         t("1月 D 选项结算", () => {
           const s = E.createGame({});
           E.settleCompanyChoice(s, step(1, 0), { A: { optionId: "m1-D" }, B: { optionId: "m1-D" }, C: { optionId: "m1-D" } });
-          if (C(s, "A").economy !== 37 || C(s, "A").ecology !== 35) throw new Error("37/35 expected");
+          if (C(s, "A").economy !== 42 || C(s, "A").ecology !== 40) throw new Error("42/40 expected");
         });
-        t("持续收益：1月D后进2月 A=37+7=44", () => {
+        t("持续收益：1月D后进2月 A=42+7=49", () => {
           const s = E.createGame({});
           E.settleCompanyChoice(s, step(1, 0), { A: { optionId: "m1-D" }, B: { optionId: "m1-D" }, C: { optionId: "m1-D" } });
           s.month = 2; s.stepIndex = 0;
           E.settleMonthOpening(s);
-          if (C(s, "A").economy !== 44) throw new Error("应为 44，实际 " + C(s, "A").economy);
+          if (C(s, "A").economy !== 49) throw new Error("应为 49，实际 " + C(s, "A").economy);
         });
-        t("6月补贴：B 当月+2 逐月流，财政一次性 -2/家", () => {
+        t("6月补贴：已装光伏当月一次性 +6，财政 -6/家", () => {
           const s = E.createGame({});
           C(s, "B").assets.rooftopPV = true;
           s.month = 6; s.stepIndex = 0;
           const r = E.settleGovernmentPolicy(s, step(6, 0), "m6-A", "");
-          if (!r.ok || C(s, "B").economy !== 62 || s.government.finance !== 98) throw new Error("B=62 财政=98 expected");
+          if (!r.ok || C(s, "B").economy !== 66 || s.government.finance !== 94) throw new Error("B=66 财政=94 expected");
           s.month = 7; s.stepIndex = 0;
           E.settleMonthOpening(s);
-          if (C(s, "B").economy !== 64 || s.government.finance !== 98) throw new Error("7月 B=64 且财政不再扣，实际 " + C(s, "B").economy + "/" + s.government.finance);
+          if (C(s, "B").economy !== 66 || s.government.finance !== 94) throw new Error("7月 B=66 且财政不再扣，实际 " + C(s, "B").economy + "/" + s.government.finance);
         });
         t("9月救灾财政一次性 -30", () => {
           const s = E.createGame({});
