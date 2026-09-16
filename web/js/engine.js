@@ -11,19 +11,28 @@
 })(typeof self !== "undefined" ? self : this, function () {
   "use strict";
 
-  const VERSION = "1.4.0";
+  const VERSION = "1.5.0";
   const SAVE_KEY = "greentales-save";
   const SNAPSHOT_LIMIT = 30;
   const RISK_LINE = 20; // 生态/经济 ≤ 20 触发风险规则
   const RESCUE_AMOUNT = 10; // 破产救助：企业 +10 / 政府 -10
 
-  const COMPANY_IDS = ["A", "B", "C"];
+  const COMPANY_ID_POOL = ["A", "B", "C", "D", "E", "F"];
+  const COMPANY_IDS = COMPANY_ID_POOL.slice(0, 3);
+  const MIN_COMPANY_COUNT = 3;
+  const MAX_COMPANY_COUNT = 6;
   const ASSET_KEYS = ["rooftopPV", "battery", "oneWayCharger", "twoWayCharger", "lowEfficiency"];
 
   /* ============ 初始化 ============ */
 
   function createGame(setup) {
     setup = setup || {};
+    const hasRequestedCount = setup.companyCount !== undefined && setup.companyCount !== null && setup.companyCount !== "";
+    const companyCount = hasRequestedCount ? Number(setup.companyCount) : MIN_COMPANY_COUNT;
+    if (!Number.isInteger(companyCount) || companyCount < MIN_COMPANY_COUNT || companyCount > MAX_COMPANY_COUNT) {
+      throw new Error("企业数量必须是 " + MIN_COMPANY_COUNT + "-" + MAX_COMPANY_COUNT + " 家");
+    }
+    const companyIds = COMPANY_ID_POOL.slice(0, companyCount);
     const names = setup.companyNames || {};
     const state = {
       version: VERSION,
@@ -31,7 +40,8 @@
       month: 1,
       stepIndex: 0, // 当前月内的步骤下标
       phase: "companyChoice", // 当前步骤类型
-      companies: COMPANY_IDS.map(function (id) {
+      companyCount: companyCount,
+      companies: companyIds.map(function (id) {
         return {
           id: id,
           name: names[id] || "企业 " + id,
@@ -51,7 +61,7 @@
       }),
       government: {
         name: setup.governmentName || "政府",
-        finance: 100,
+        finance: governmentStartingFinance(companyCount),
         policyLog: [],
         awards: [],
       },
@@ -68,7 +78,7 @@
         autoDice: setup.autoDice !== false, // 默认自动掷骰
       },
     };
-    log(state, "system", "游戏创建，初始值：企业经济 60 / 生态 60，政府财政 100");
+    log(state, "system", "游戏创建，" + companyCount + " 家企业；初始值：企业经济 60 / 生态 60，政府财政 " + governmentStartingFinance(companyCount));
     return state;
   }
 
@@ -110,6 +120,31 @@
 
   function fmtNumber(n) {
     return String(Math.round((Number(n) + Number.EPSILON) * 100) / 100);
+  }
+
+  function normalizeCompanyCount(value) {
+    const n = Number(value);
+    return Number.isInteger(n) && n >= MIN_COMPANY_COUNT && n <= MAX_COMPANY_COUNT ? n : MIN_COMPANY_COUNT;
+  }
+
+  function governmentTargets(companyCount) {
+    const n = normalizeCompanyCount(companyCount);
+    return {
+      ecology: 70 * n,
+      economy: 80 * n,
+    };
+  }
+
+  function governmentStartingFinance(companyCount) {
+    return 40 + 20 * normalizeCompanyCount(companyCount);
+  }
+
+  function normalizeState(state) {
+    if (!state || !Array.isArray(state.companies)) return state;
+    const count = normalizeCompanyCount(state.companies.length);
+    state.version = VERSION;
+    state.companyCount = count;
+    return state;
   }
 
   /* ============ 月度记录 ============ */
@@ -248,10 +283,10 @@
     const retroMap = {};
     for (const retrofit of step.retrofitOptions || []) retroMap[retrofit.id] = retrofit;
 
-    for (const cid of COMPANY_IDS) {
+    for (const c of state.companies) {
+      const cid = c.id;
       const decision = decisions[cid];
       if (!decision) continue;
-      const c = getCompany(state, cid);
       const opt = optMap[decision.optionId];
       if (!opt) return { ok: false, error: c.name + " 选择了未知选项" };
       if (!meetsAssetRequirements(opt, c)) {
@@ -286,12 +321,12 @@
     const optMap = {};
     for (const o of step.options) optMap[o.id] = o;
 
-    for (const cid of COMPANY_IDS) {
+    for (const c of state.companies) {
+      const cid = c.id;
       const d = decisions[cid];
       if (!d) continue;
       const opt = optMap[d.optionId];
       if (!opt) continue;
-      const c = getCompany(state, cid);
       const rec = ensureMonthlyRecord(state, cid);
 
       // 投资成本
@@ -358,10 +393,10 @@
     // decisions: { companyId: retrofitId }（仅 applyIntent === "applyWithRetrofit" 的企业）
     const retroMap = {};
     for (const r of step.retrofitOptions || []) retroMap[r.id] = r;
-    for (const cid of COMPANY_IDS) {
+    for (const c of state.companies) {
+      const cid = c.id;
       const r = decisions[cid] ? retroMap[decisions[cid]] : null;
       if (!r) continue;
-      const c = getCompany(state, cid);
       if (!meetsAssetRequirements(r, c)) {
         return { ok: false, error: c.name + " 不满足加装资格：" + r.label };
       }
@@ -374,12 +409,12 @@
     markPreSettle(state);
     const retrofitChoices = (state.retrofitChoices = state.retrofitChoices || {});
 
-    for (const cid of COMPANY_IDS) {
+    for (const c of state.companies) {
+      const cid = c.id;
       const rid = decisions[cid];
       if (!rid) continue;
       const r = retroMap[rid];
       if (!r) continue;
-      const c = getCompany(state, cid);
       const rec = ensureMonthlyRecord(state, cid);
       if (r.cost) {
         c.economy += r.cost;
@@ -408,7 +443,7 @@
     // 返回受影响企业 id 数组
     switch (apply.target) {
       case "all":
-        return COMPANY_IDS.slice();
+        return state.companies.map(function (c) { return c.id; });
       case "hasRooftopPV":
         return state.companies.filter(function (c) { return c.assets.rooftopPV; }).map(function (c) { return c.id; });
       case "ecoLowest": {
@@ -523,9 +558,9 @@
   function checkZeroCarbonEligibility(state, decisions) {
     // decisions: { companyId: { optionId } }（m11-apply 步骤的决策）
     const result = {};
-    for (const cid of COMPANY_IDS) {
+    for (const c of state.companies) {
+      const cid = c.id;
       const d = decisions[cid];
-      const c = getCompany(state, cid);
       const n = qualifiedAssets(c.assets);
       const intent = d ? (d.optionId === "m11-A" ? "applyDirect" : d.optionId === "m11-B" ? "applyWithRetrofit" : "skip") : "skip";
       let eligible = false;
@@ -535,7 +570,6 @@
     }
     // 记录公开的申报状态（含加装后复查）
     state.zeroCarbonApplications = state.zeroCarbonApplications || {};
-    for (const cid of COMPANY_IDS) result[cid].intent;
     log(state, "settle", "零碳园区资格检查完成");
     return result;
   }
@@ -543,11 +577,12 @@
   function finalizeZeroCarbon(state, decisions, retrofitDecisions) {
     // 在加装结算之后调用，得到最终合格申报企业集合
     const apps = {};
-    for (const cid of COMPANY_IDS) {
+    for (const c of state.companies) {
+      const cid = c.id;
       const d = decisions[cid];
       if (!d) { apps[cid] = { applied: false, eligible: false }; continue; }
       const intent = d.optionId === "m11-A" ? "applyDirect" : d.optionId === "m11-B" ? "applyWithRetrofit" : "skip";
-      const n = qualifiedAssets(getCompany(state, cid).assets);
+      const n = qualifiedAssets(c.assets);
       const applied = intent !== "skip";
       const eligible = applied && n >= 2;
       apps[cid] = { applied: applied, eligible: eligible, assetCount: n };
@@ -564,11 +599,11 @@
     const valid = state.zeroCarbonApplications || {};
     snapshot(state, "M11 试点资金发放前");
     markPreSettle(state);
-    for (const cid of COMPANY_IDS) {
+    for (const c of state.companies) {
+      const cid = c.id;
       const app = valid[cid];
       const amount = tierByCompany[cid];
       if (!app || !app.eligible || !amount) continue;
-      const c = getCompany(state, cid);
       if (state.government.finance - amount < 0) {
         return { ok: false, error: "财政红线：第 " + amount + " 档资金不足（当前财政 " + state.government.finance + "）" };
       }
@@ -676,14 +711,15 @@
       .sort(function (a, b) { return b.total - a.total; });
     const totalEco = state.companies.reduce(function (s, c) { return s + c.ecology; }, 0);
     const totalEcon = state.companies.reduce(function (s, c) { return s + c.economy; }, 0);
+    const targets = governmentTargets(state.companyCount || state.companies.length);
     return {
       ranking: ranking,
       totalEcology: totalEco,
       totalEconomy: totalEcon,
       govFinance: state.government.finance,
       goals: {
-        ecology: { target: 240, value: totalEco, achieved: totalEco >= 240 },
-        economy: { target: 320, value: totalEcon, achieved: totalEcon >= 320 },
+        ecology: { target: targets.ecology, value: totalEco, achieved: totalEco >= targets.ecology },
+        economy: { target: targets.economy, value: totalEcon, achieved: totalEcon >= targets.economy },
         finance: { target: 0, value: state.government.finance, achieved: state.government.finance >= 0 },
       },
     };
@@ -694,7 +730,7 @@
   function undo(state) {
     if (!state.snapshots.length) return { ok: false, error: "无快照可撤销" };
     const snap = state.snapshots.pop();
-    const restored = snap.state;
+    const restored = normalizeState(snap.state);
     restored.snapshots = state.snapshots; // 保留剩余快照栈
     log(restored, "system", "撤销：恢复到「" + snap.label + "」");
     return { ok: true, state: restored };
@@ -711,13 +747,16 @@
     try { obj = JSON.parse(json); } catch (e) {
       return { ok: false, error: "JSON 解析失败：" + e.message };
     }
-    if (!obj.version || obj.version !== VERSION) {
+    if (!obj.version || ["1.4.0", VERSION].indexOf(obj.version) < 0) {
       return { ok: false, error: "版本不匹配（存档 " + obj.version + "，当前 " + VERSION + "），拒绝导入" };
     }
-    if (!obj.companies || obj.companies.length !== 3 || !obj.government) {
+    if (!obj.companies || obj.companies.length < MIN_COMPANY_COUNT || obj.companies.length > MAX_COMPANY_COUNT || !obj.government) {
       return { ok: false, error: "存档结构不完整" };
     }
-    return { ok: true, state: obj };
+    if (obj.companyCount !== undefined && obj.companyCount !== null && Number(obj.companyCount) !== obj.companies.length) {
+      return { ok: false, error: "存档企业数量与名单不一致" };
+    }
+    return { ok: true, state: normalizeState(obj) };
   }
 
   /* ============ 公开快照（观战页用，最小化） ============ */
@@ -739,6 +778,7 @@
         : [],
       reveal: !!state.revealed,
       submittedCount: Object.keys(state.pendingDecisions || {}).filter(function (k) { return state.pendingDecisions[k]; }).length,
+      companyCount: state.companyCount,
       companies: state.companies.map(function (c) {
         return {
           id: c.id, name: c.name, economy: c.economy, ecology: c.ecology,
@@ -776,7 +816,12 @@
     SAVE_KEY: SAVE_KEY,
     RISK_LINE: RISK_LINE,
     RESCUE_AMOUNT: RESCUE_AMOUNT,
+    governmentStartingFinance: governmentStartingFinance,
     COMPANY_IDS: COMPANY_IDS,
+    COMPANY_ID_POOL: COMPANY_ID_POOL,
+    MIN_COMPANY_COUNT: MIN_COMPANY_COUNT,
+    MAX_COMPANY_COUNT: MAX_COMPANY_COUNT,
+    governmentTargets: governmentTargets,
     ASSET_KEYS: ASSET_KEYS,
     createGame: createGame,
     log: log,

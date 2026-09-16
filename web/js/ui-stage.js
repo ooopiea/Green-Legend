@@ -119,8 +119,8 @@
       hud.govBar = U.el("span", { class: "mini-bar" }, U.el("i")),
       hud.govNum = U.el("b", { text: "—" }),
       hud.govTotals = U.el("span", { class: "th-hud-totals" },
-        hud.totalEcology = U.el("span", { class: "th-total", text: "总生态 —/240" }),
-        hud.totalEconomy = U.el("span", { class: "th-total", text: "总经济 —/320" }),
+        hud.totalEcology = U.el("span", { class: "th-total", text: "总生态 —" }),
+        hud.totalEconomy = U.el("span", { class: "th-total", text: "总经济 —" }),
         hud.financeGoal = U.el("span", { class: "th-total", text: "财政目标 ≥0" })));
     hud.comps = U.el("span", { class: "th-hud-comps" });
 
@@ -168,7 +168,7 @@
     lastSlideNo = slideNo;
     lastPhase = phase;
 
-    const canvas = GL.renderSlide(slideNo, { state: state, EV: EV });
+    const canvas = GL.renderSlide(slideNo, { state: state, EV: EV, E: E });
     if (samePage) canvas.classList.add("no-anim"); // 同页重渲染不重播动画
     const layer = U.el("div", { class: "th-slide-scale" }, canvas);
 
@@ -225,7 +225,7 @@
     hud.totalEconomy.classList.toggle("ok", final.goals.economy.achieved);
     hud.financeGoal.textContent = "财政目标 ≥" + final.goals.finance.target;
     hud.financeGoal.classList.toggle("ok", final.goals.finance.achieved);
-    // 三家企业经济/生态双值
+    // 各家企业经济/生态双值
     let best = -Infinity;
     state.companies.forEach(c => { const t = c.economy + c.ecology; if (t > best) best = t; });
     const csSig = state.companies
@@ -233,6 +233,10 @@
       .join("|");
     if (csSig !== lastCompsSig) {
       lastCompsSig = csSig;
+      for (let n = E.MIN_COMPANY_COUNT; n <= E.MAX_COMPANY_COUNT; n++) {
+        hud.comps.classList.toggle("th-comps-" + n, n === state.companies.length);
+      }
+      hud.comps.classList.add("th-comps-" + state.companies.length);
       U.clear(hud.comps);
       state.companies.forEach(c => {
         hud.comps.appendChild(U.el("div", { class: "th-comp", "data-id": c.id },
@@ -306,7 +310,7 @@
         if (!pv) return;
         const dE = c.economy - pv.econ, dC = c.ecology - pv.eco;
         if (dE === 0 && dC === 0) return;
-        const tag = U.el("div", { class: "float-tag", style: "top:" + (24 + idx * 16) + "%;animation-delay:" + (idx * 0.18) + "s" },
+        const tag = U.el("div", { class: "float-tag", style: "top:" + (16 + idx * 11) + "%;animation-delay:" + (idx * 0.12) + "s" },
           U.el("span", { class: "fname", text: c.name }),
           U.el("span", { class: "fdelta" },
             U.el("span", { class: dE > 0 ? "pos" : dE < 0 ? "neg" : "flat", text: "经济 " + (dE > 0 ? "+" : "") + dE }),

@@ -8,6 +8,7 @@
 const { chromium } = require('playwright');
 
 const BASE = process.argv[2] || 'http://localhost:8000/index.html';
+const COMPANY_COUNT = Math.max(3, Math.min(6, Number(process.env.GREEN_COMPANY_COUNT || 3) || 3));
 
 (async () => {
   const browser = await chromium.launch({ channel: 'chrome' });
@@ -30,6 +31,27 @@ const BASE = process.argv[2] || 'http://localhost:8000/index.html';
       if (await rescue.count()) { await rescue.first().click(); await ctrl.waitForTimeout(350); }
       else break;
     }
+  }
+  async function choosePlantOrRewardChild() {
+    await ctrl.locator('.policy-btn').first().click();
+    await ctrl.waitForTimeout(250);
+    const chosen = await ctrl.evaluate(() => {
+      const child = [...document.querySelectorAll('.policy-btn')].find(button => {
+        const label = button.querySelector('.p-label');
+        return /^A[12]/.test((label && label.textContent.trim()) || '');
+      });
+      if (!child || child.disabled) return false;
+      child.click();
+      return true;
+    });
+    if (!chosen) return false;
+    await ctrl.waitForTimeout(250);
+    await ctrl.evaluate(() => {
+      const ok = [...document.querySelectorAll('.modal button')].find(button => button.textContent.trim() === '确认');
+      if (ok) ok.click();
+    });
+    await ctrl.waitForTimeout(350);
+    return true;
   }
   async function stageSlide() {
     const c = await stage.locator('.sl-canvas').first();
@@ -74,18 +96,19 @@ const BASE = process.argv[2] || 'http://localhost:8000/index.html';
   await ctrl.evaluate(() => localStorage.clear());
   await ctrl.reload();
   await ctrl.waitForTimeout(500);
+  await ctrl.locator('.setup-row:has(label:has-text("企业数量")) select').selectOption(String(COMPANY_COUNT));
   await ctrl.click('text=开 局');
   await expectStage(9, '开局 → 第 9 页（1 月设备题面）');
   check('开局：等待幕收起', !(await stage.locator('.th-veil').isVisible()));
   const hudFin = await stage.locator('.th-hud-gov b').textContent();
   check('开局：HUD 财政与中控一致', hudFin.trim() === '100', 'hud=' + hudFin);
 
-  // 三家提交（都选 B 高能效）→ 芯片 3/3，同页 9 不换页
+  // 当前局全部企业提交（都选 B 高能效）→ 芯片齐，同页 9 不换页
   const ob = ctrl.locator('.opt-btns');
-  for (let g = 0; g < 3; g++) { await ob.nth(g).locator('.opt-btn').nth(1).click(); await ctrl.waitForTimeout(120); }
+  for (let g = 0; g < COMPANY_COUNT; g++) { await ob.nth(g).locator('.opt-btn').nth(1).click(); await ctrl.waitForTimeout(120); }
   await stage.waitForTimeout(1200);
-  check('提交 3 家：芯片 3/3 且仍停第 9 页',
-    (await stage.locator('.sl-chip.on').count()) === 3 && (await stageSlide()) === '9',
+  check(`提交 ${COMPANY_COUNT} 家：芯片齐且仍停第 9 页`,
+    (await stage.locator('.sl-chip.on').count()) === COMPANY_COUNT && (await stageSlide()) === '9',
     'chips=' + (await stage.locator('.sl-chip.on').count()) + ' slide=' + (await stageSlide()));
 
   // 同页 1.7s 轮询稳定性：节点身份不变 + 动画名不变
@@ -107,7 +130,7 @@ const BASE = process.argv[2] || 'http://localhost:8000/index.html';
   await ctrl.click('button:has-text("统一揭示并结算")');
   await expectStage(10, '揭示 → 第 10 页（答案表）');
   await clearRescue();
-  check('答案页：企业选择徽章 ≥3', (await stage.locator('.sl-pick').count()) >= 3);
+  check(`答案页：企业选择徽章 ≥${COMPANY_COUNT}`, (await stage.locator('.sl-pick').count()) >= COMPANY_COUNT);
   check('答案页：数字点亮 ≥1', (await stage.locator('.sl-num.lit').count()) >= 1);
   check('答案页：结算飘字出现', (await stage.locator('.float-tag').count()) >= 1);
 
@@ -116,7 +139,7 @@ const BASE = process.argv[2] || 'http://localhost:8000/index.html';
   await expectStage(11, '下一步 → 第 11 页（2 月围护题面）');
 
   /* ================= C. 2 月 + 政府答案页停留 ================= */
-  for (let g = 0; g < 3; g++) { await ob.nth(g).locator('.opt-btn').nth(1).click(); await ctrl.waitForTimeout(120); }
+  for (let g = 0; g < COMPANY_COUNT; g++) { await ob.nth(g).locator('.opt-btn').nth(1).click(); await ctrl.waitForTimeout(120); }
   await ctrl.click('button:has-text("统一揭示并结算")');
   await expectStage(12, '2 月揭示 → 第 12 页');
   await clearRescue();
@@ -124,10 +147,7 @@ const BASE = process.argv[2] || 'http://localhost:8000/index.html';
   await expectStage(13, '下一步 → 第 13 页（2 月生态奖惩题面）');
 
   // 政府确认（从轻）→ 两阶段：停 14 等中控下一步
-  await ctrl.locator('.policy-btn').first().click();
-  await ctrl.waitForTimeout(250);
-  const okBtn = ctrl.locator('.modal button:has-text("确认")');
-  if (await okBtn.count()) { await okBtn.click(); await ctrl.waitForTimeout(300); }
+  await choosePlantOrRewardChild();
   await clearRescue();
   const st1 = await ctrlState();
   check('两阶段：政府结算后 stepSettled 置位', st1.settled, JSON.stringify(st1));
@@ -169,7 +189,7 @@ const BASE = process.argv[2] || 'http://localhost:8000/index.html';
         console.log(`  [${tag}] 已揭示但无下一步`); break;
       }
       let allChosen = true;
-      for (let g = 0; g < 3; g++) {
+      for (let g = 0; g < COMPANY_COUNT; g++) {
         const btns = ctrl.locator('.opt-btns').nth(g).locator('.opt-btn');
         const cnt = await btns.count();
         const enabled = [];
@@ -198,6 +218,9 @@ const BASE = process.argv[2] || 'http://localhost:8000/index.html';
           else { console.log(`  [${tag}] 卡死`); break; }
         }
       }
+    } else if (st.stepType === 'governmentChoice' && st.govMode === 'plantOrReward') {
+      const okPolicy = await choosePlantOrRewardChild();
+      if (!okPolicy) { console.log(`  [${tag}] plantOrReward 无可执行子项`); break; }
     } else if (st.stepType === 'governmentChoice') {
       if (st.govMode === 'perApplicantFunding') {
         // 给首位申报企业点第 2 档，验证档位发放路径
@@ -241,7 +264,7 @@ const BASE = process.argv[2] || 'http://localhost:8000/index.html';
     }
 
     // 救助弹窗
-    for (let ri = 0; ri < 5; ri++) {
+    for (let ri = 0; ri < COMPANY_COUNT + 2; ri++) {
       const rescue = ctrl.locator('.modal button:has-text("发放救助")');
       if (await rescue.count()) { await rescue.first().click(); await ctrl.waitForTimeout(400); }
       else break;
@@ -272,8 +295,9 @@ const BASE = process.argv[2] || 'http://localhost:8000/index.html';
 
   /* ================= E. 终局 ================= */
   await expectStage(42, '终局 → 第 42 页（年终颁奖）');
-  check('终局：排名 3 行', (await stage.locator('.sl-rank-row').count()) === 3);
+  check(`终局：排名 ${COMPANY_COUNT} 行`, (await stage.locator('.sl-rank-row').count()) === COMPANY_COUNT);
   check('终局：目标胶囊 3 枚', (await stage.locator('.sl-goal').count()) === 3);
+  check(`终局：每家企业都有奖项`, (await stage.locator('.sl-award').count()) === COMPANY_COUNT);
   // 终局页同页 1.7s 稳定性
   await stage.evaluate(() => { window.__f = document.querySelector('.sl-canvas'); });
   await stage.waitForTimeout(1700);

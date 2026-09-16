@@ -7,6 +7,7 @@
 const { chromium } = require('playwright');
 
 const BASE = process.argv[2] || 'http://localhost:8000/index.html';
+const COMPANY_COUNT = Math.max(3, Math.min(6, Number(process.env.GREEN_COMPANY_COUNT || 3) || 3));
 
 function pickSteps(m, k) { return (m + k) % 4; } // 选项轮转策略：覆盖不同分支
 
@@ -26,11 +27,21 @@ function pickSteps(m, k) { return (m + k) % 4; } // 选项轮转策略：覆盖�
   await ctrl.evaluate(() => localStorage.clear());
   await ctrl.reload();
   await ctrl.waitForTimeout(600);
+  await ctrl.locator('.setup-row:has(label:has-text("企业数量")) select').selectOption(String(COMPANY_COUNT));
   await ctrl.click('text=开 局');
   await ctrl.waitForTimeout(800);
+  const started = await ctrl.evaluate(() => ({
+    count: ControlConsole.state.companies.length,
+    declared: ControlConsole.state.companyCount,
+  }));
+  if (started.count !== COMPANY_COUNT || started.declared !== COMPANY_COUNT) {
+    throw new Error(`开局数量错误：期望 ${COMPANY_COUNT}，实际 ${JSON.stringify(started)}`);
+  }
 
   let month = 1, stepInMonth = 0, guard = 0;
   const monthLog = [];
+  let lastPosition = "";
+  let stuckCount = 0;
   while (guard++ < 300) {
     const st = await ctrl.evaluate(() => {
       const s = ControlConsole.state;
@@ -40,6 +51,17 @@ function pickSteps(m, k) { return (m + k) % 4; } // 选项轮转策略：覆盖�
       return { month: s.month, stepIndex: s.stepIndex, finished: s.finished, stepType: step ? step.type : null, govMode: step && step.government ? (step.government.mode || (step.government.options ? 'options' : null)) : null, optCount: step && step.options ? step.options.length : 0, stepId: step ? step.id : null, settled: !!(s.stepSettled && step && s.stepSettled.stepId === step.id) };
     });
     if (!st) { console.log('状态丢失'); break; }
+    const position = `${st.month}:${st.stepIndex}:${st.stepId}`;
+    if (position === lastPosition) stuckCount++;
+    else { lastPosition = position; stuckCount = 0; }
+    if (stuckCount >= 6) {
+      const pageButtons = await ctrl.evaluate(() => [...document.querySelectorAll('button')].map(button => ({
+        text: button.textContent.trim(),
+        disabled: button.disabled,
+        visible: !!(button.offsetWidth || button.offsetHeight),
+      })));
+      throw new Error('自动化在同一状态连续停滞：' + JSON.stringify({ state: st, pageButtons }));
+    }
     if (st.finished) { monthLog.push('终局'); break; }
 
     const tag = `${st.month}月#${st.stepIndex}(${st.stepType}${st.govMode ? ':' + st.govMode : ''})`;
@@ -52,7 +74,7 @@ function pickSteps(m, k) { return (m + k) % 4; } // 选项轮转策略：覆盖�
     }
 
     if (st.stepType === 'companyChoice') {
-      // 已揭示 → 点"下一步"推进；未揭示 → 三家录选后统一揭示
+      // 已揭示 → 点"下一步"推进；未揭示 → 当前局全部企业录选后统一揭示
       const revealed = await ctrl.evaluate(() => ControlConsole.state.revealed);
       if (revealed) {
         const nb = ctrl.locator('button:has-text("下一步")');
@@ -61,7 +83,7 @@ function pickSteps(m, k) { return (m + k) % 4; } // 选项轮转策略：覆盖�
       }
       const n = st.optCount;
       let allChosen = true;
-      for (let g = 0; g < 3; g++) {
+      for (let g = 0; g < COMPANY_COUNT; g++) {
         const pick = pickSteps(st.month, g) % n + 1; // 1-based 选项序号
         const btns = ctrl.locator('.opt-btns').nth(g).locator('.opt-btn');
         const cnt = await btns.count();
@@ -126,6 +148,30 @@ function pickSteps(m, k) { return (m + k) % 4; } // 选项轮转策略：覆盖�
           const ok = ctrl.locator('.modal button:has-text("确认")');
           if (await ok.count()) { await ok.click(); await ctrl.waitForTimeout(350); }
         } else { console.log(`  [${tag}] ecoExtrema 无可用按钮`); break; }
+      } else if (st.govMode === 'plantOrReward') {
+        // A 是父选项，第一次点击展开 A1/A2，再选择一个可执行子项。
+        const parent = ctrl.locator('.policy-btn').first();
+        if (await parent.count()) {
+          await parent.click();
+          await ctrl.waitForTimeout(250);
+          const chosen = await ctrl.evaluate(() => {
+            const child = [...document.querySelectorAll('.policy-btn')].find(button => {
+              const label = button.querySelector('.p-label');
+              return /^A[12]/.test((label && label.textContent.trim()) || '');
+            });
+            if (!child || child.disabled) return false;
+            child.click();
+            return true;
+          });
+          if (!chosen) break;
+          await ctrl.waitForTimeout(250);
+          await ctrl.evaluate(() => {
+            const ok = [...document.querySelectorAll('.modal button')].find(button => button.textContent.trim() === '确认');
+            if (ok) ok.click();
+          });
+          await ctrl.waitForTimeout(350);
+          if (!chosen) { console.log(`  [${tag}] plantOrReward 无可执行子项`); break; }
+        } else { console.log(`  [${tag}] plantOrReward 无政策按钮`); break; }
       } else {
         // 其它政府模式：尝试任意政策/下一步
         const nb = ctrl.locator('button:has-text("下一步"), button:has-text("跳过")');
@@ -187,6 +233,9 @@ function pickSteps(m, k) { return (m + k) % 4; } // 选项轮转策略：覆盖�
   console.log('[终局]', JSON.stringify(fin, null, 1));
   console.log('[月份轨迹]', monthLog.join(' '));
   console.log('[JS错误]', errors.length ? errors.slice(0, 5).join(' | ') : '无');
+  const failures = [];
+  if (!fin.finished) failures.push('全流程未到达终局');
+  if (fin.awards.length !== COMPANY_COUNT) failures.push(`年终奖项数量应为 ${COMPANY_COUNT}，实际 ${fin.awards.length}`);
 
   // 刷新恢复
   await ctrl.reload();
@@ -196,19 +245,22 @@ function pickSteps(m, k) { return (m + k) % 4; } // 选项轮转策略：覆盖�
     return s ? { month: s.month, finished: s.finished, fin: s.government.finance } : null;
   });
   console.log('[刷新恢复]', after && after.finished ? 'OK（终局保持）' : JSON.stringify(after));
+  if (!after || !after.finished) failures.push('刷新后终局丢失');
 
   // 舞台终局同步（幻灯片播放器）
   await stage.waitForTimeout(1200);
   const stTxt = (await stage.textContent('#app')).replace(/\s+/g, ' ');
   console.log('[舞台终局]', /年终|排名|冠军/.test(stTxt) ? 'OK · ' + stTxt.slice(0, 80) : 'FAIL: ' + stTxt.slice(0, 80));
-  // 幻灯片终局断言：第 42 页画布 + 排名 3 行 + 目标胶囊 3 枚
+  if (!/年终|排名|冠军/.test(stTxt)) failures.push('舞台未显示年终结算');
+  // 幻灯片终局断言：第 42 页画布 + 排名行数与本局企业数一致 + 目标胶囊 3 枚
   const slideN = await stage.locator('.sl-canvas').first().getAttribute('data-slide-n');
   const rankRows = await stage.locator('.sl-rank-row').count();
   const goals = await stage.locator('.sl-goal').count();
-  console.log('[幻灯终局]', slideN === '42' && rankRows === 3 && goals === 3
+  console.log('[幻灯终局]', slideN === '42' && rankRows === COMPANY_COUNT && goals === 3
     ? `OK（第42页 · 排名${rankRows}行 · 目标${goals}枚）`
     : `FAIL（页${slideN} 排名${rankRows} 目标${goals}）`);
+  if (slideN !== '42' || rankRows !== COMPANY_COUNT || goals !== 3) failures.push('年终幻灯片断言失败');
 
   await browser.close();
-  process.exit(errors.length ? 1 : 0);
+  process.exit(errors.length || failures.length ? 1 : 0);
 })().catch(e => { console.error('FATAL', e.message); process.exit(1); });

@@ -11,3 +11,6 @@ desktop.ini
 
 # 开发侧测试依赖（浏览器测试用系统 Chrome，channel:'chrome'）
 node_modules/
+
+# Local browser audit artifacts
+temp/

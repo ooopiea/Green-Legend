@@ -16,8 +16,9 @@ function test(name, fn) {
   }
 }
 
-function newGame() {
+function newGame(companyCount = 3) {
   return E.createGame({
+    companyCount,
     companyNames: { A: "甲公司", B: "乙公司", C: "丙公司" },
     autoDice: true,
   });
@@ -51,8 +52,43 @@ test("初始值和引擎版本", () => {
   assert.strictEqual(state.companies[0].economy, 60);
   assert.strictEqual(state.companies[0].ecology, 60);
   assert.strictEqual(state.government.finance, 100);
-  assert.strictEqual(E.VERSION, "1.4.0");
+  assert.strictEqual(E.VERSION, "1.5.0");
   assert.strictEqual(E.fmtNumber(10 / 3), "3.33");
+});
+
+test("企业数量支持 3-6 家，政府目标按基础值加企业数缩放", () => {
+  const expected = [
+    [3, 210, 240],
+    [4, 280, 320],
+    [5, 350, 400],
+    [6, 420, 480],
+  ];
+  for (const [count, ecology, economy] of expected) {
+    const state = E.createGame({ companyCount: count });
+    assert.strictEqual(state.companies.length, count);
+    assert.strictEqual(state.companyCount, count);
+    assert.strictEqual(state.companies[count - 1].id, ["A", "B", "C", "D", "E", "F"][count - 1]);
+    assert.deepStrictEqual(E.governmentTargets(count), { ecology, economy });
+    assert.strictEqual(E.governmentStartingFinance(count), 40 + 20 * count);
+  }
+
+  const six = E.createGame({ companyCount: 6 });
+  six.companies.forEach((item, index) => {
+    item.economy = 100 - index;
+    item.ecology = 80 - index * 2;
+  });
+  const final = E.computeFinal(six);
+  assert.strictEqual(final.ranking.length, 6);
+  assert.strictEqual(final.ranking[0].id, "A");
+  assert.strictEqual(final.goals.ecology.target, 420);
+  assert.strictEqual(final.goals.economy.target, 480);
+});
+
+test("拒绝 3-6 以外或非整数的开局数量", () => {
+  assert.throws(() => E.createGame({ companyCount: 2 }), /3-6/);
+  assert.throws(() => E.createGame({ companyCount: 7 }), /3-6/);
+  assert.throws(() => E.createGame({ companyCount: 3.5 }), /3-6/);
+  assert.throws(() => E.createGame({ companyCount: "四" }), /3-6/);
 });
 
 test("企业统一结算成功时返回 ok 标记", () => {
@@ -345,6 +381,13 @@ test("存档往返并拒绝旧版本", () => {
   assert.strictEqual(restored.state.government.finance, 100);
   const old = E.deserialize(JSON.stringify({ version: "1.1.0" }));
   assert.ok(!old.ok);
+
+  const six = newGame(6);
+  const oldSix = E.deserialize(JSON.stringify({ ...six, version: "1.4.0" }));
+  assert.ok(oldSix.ok);
+  assert.strictEqual(oldSix.state.companyCount, 6);
+  const mismatch = E.deserialize(JSON.stringify({ ...six, companyCount: 3 }));
+  assert.ok(!mismatch.ok);
 });
 
 console.log("\n== 结果：" + passed + " 通过，" + failed + " 失败 ==");

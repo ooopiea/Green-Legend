@@ -199,9 +199,13 @@
 .sl-chips { position: absolute; left: 60px; bottom: 24px; display: flex; gap: 14px; flex-wrap: wrap; max-width: 1100px; }
 .sl-chips.dice { left: 60px; bottom: 28px; }
 .sl-chip {
-  font-size: 24px; padding: 8px 24px; border-radius: 999px;
-  background: var(--slide-card); border: 2.5px dashed var(--slide-card-border); color: var(--slide-muted);
+  font-size: 20px; padding: 6px 18px; border-radius: 999px;
+  background: var(--slide-card); border: 2px dashed var(--slide-card-border); color: var(--slide-muted);
   font-weight: 600; box-shadow: var(--shadow);
+}
+.sl-chips.dense:not(.fund) { left: 40px; right: 40px; bottom: 18px; gap: 8px; max-width: none; }
+.sl-chips.dense .sl-chip {
+  font-size: 16px; padding: 4px 12px; line-height: 1.2;
 }
 .sl-chip.on { border-style: solid; border-color: var(--slide-accent-border); background: var(--slide-accent-soft); color: var(--slide-accent-deep); }
 .sl-chip.warn { border-style: solid; border-color: var(--cinnabar-border); background: var(--cinnabar-soft); color: var(--cinnabar); }
@@ -332,10 +336,17 @@
 
 /* ---------- 42 页年终 ---------- */
 
-.sl-finalhead { position: absolute; top: 44px; left: 0; right: 0; text-align: center; }
-.sl-finalhead .sl-big-title { position: static; font-size: 96px; color: var(--jade-deep); text-shadow: 0 3px 0 rgba(212, 160, 23, 0.4); }
-.sl-award-title { font-size: 46px; color: var(--gold); font-weight: 800; letter-spacing: 6px; margin-top: 8px; }
-.sl-rank { position: absolute; left: 110px; right: 110px; top: 286px; display: flex; flex-direction: column; gap: 12px; }
+.sl-final { --final-title-size: 92px; --final-subtitle-size: 42px; --final-rank-top: 250px; }
+.sl-final-4 { --final-title-size: 72px; --final-subtitle-size: 34px; --final-rank-top: 190px; }
+.sl-final-5 { --final-title-size: 62px; --final-subtitle-size: 30px; --final-rank-top: 180px; }
+.sl-final-6 { --final-title-size: 54px; --final-subtitle-size: 26px; --final-rank-top: 168px; }
+.sl-finalhead { position: absolute; top: 36px; left: 0; right: 0; text-align: center; }
+.sl-finalhead .sl-big-title { position: static; font-size: var(--final-title-size); line-height: 1.05; color: var(--jade-deep); text-shadow: 0 3px 0 rgba(212, 160, 23, 0.4); }
+.sl-award-title { font-size: var(--final-subtitle-size); line-height: 1.2; color: var(--gold); font-weight: 800; letter-spacing: 6px; margin-top: 8px; }
+.sl-rank {
+  position: absolute; left: 110px; right: 110px; top: var(--final-rank-top); bottom: 216px;
+  display: flex; flex-direction: column; justify-content: center; gap: 12px;
+}
 .sl-rank-row {
   display: flex; align-items: baseline; gap: 24px;
   background: rgba(255, 255, 255, 0.88); border: 2.5px solid var(--slate-border); border-radius: 14px;
@@ -346,17 +357,62 @@
 .sl-rank-name { font-weight: 800; font-size: 30px; }
 .sl-rank-vals { color: var(--slate); margin-left: auto; }
 .sl-rank-total { font-size: 34px; font-weight: 800; color: var(--jade-deep); min-width: 130px; text-align: right; }
-.sl-goals { position: absolute; left: 50px; right: 50px; bottom: 118px; display: flex; justify-content: center; gap: 18px; }
+.sl-goals { position: absolute; left: 50px; right: 50px; top: 532px; bottom: auto; min-height: 48px; align-items: center; display: flex; justify-content: center; gap: 18px; }
 .sl-goal {
-  font-size: 22px; font-weight: 700; padding: 8px 20px; border-radius: 999px; border: 2.5px solid;
+  font-size: 21px; line-height: 1.2; font-weight: 700; padding: 6px 18px; border-radius: 999px; border: 2.5px solid;
   white-space: nowrap;
 }
 .sl-goal.ok { color: var(--jade-deep); border-color: var(--jade-border); background: var(--jade-soft); }
 .sl-goal.miss { color: var(--cinnabar); border-color: var(--cinnabar-border); background: var(--cinnabar-soft); }
-.sl-awards { position: absolute; left: 110px; right: 110px; bottom: 30px; display: flex; justify-content: center; gap: 34px; flex-wrap: wrap; }
-.sl-award { display: flex; align-items: baseline; gap: 10px; font-size: 24px; }
+.sl-awards {
+  position: absolute; left: 110px; right: 110px; top: 596px; bottom: 20px;
+  display: flex; align-content: center; justify-content: center;
+  gap: 18px 34px; flex-wrap: wrap; overflow: hidden;
+}
+.sl-award {
+  display: flex; align-items: baseline; gap: 10px; font-size: 24px;
+  min-width: 0; max-width: 520px;
+}
 .sl-award-name { color: var(--gold-deep, #8a6608); font-weight: 800; font-size: 27px; }
-.sl-award-to { color: var(--slate); }
+.sl-award-to {
+  display: inline-block; max-width: 280px; overflow: hidden;
+  color: var(--slate); text-overflow: ellipsis; white-space: nowrap;
+  vertical-align: bottom;
+}
+.sl-awards-4 { gap: 14px 28px; }
+.sl-awards-4 .sl-award { font-size: 22px; }
+.sl-awards-4 .sl-award-name { font-size: 25px; }
+.sl-awards-5, .sl-awards-6 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: center;
+  justify-items: center;
+  gap: 8px 20px;
+}
+.sl-awards-5 .sl-award, .sl-awards-6 .sl-award {
+  max-width: 100%;
+  min-width: 0;
+  font-size: 20px;
+}
+.sl-awards-5 .sl-award-name, .sl-awards-6 .sl-award-name { font-size: 23px; }
+.sl-awards-5 .sl-award-to, .sl-awards-6 .sl-award-to { max-width: 140px; }
+
+/* 企业数可变后，年终排名行数也要保证完整落在目标区上方 */
+.sl-rank-4 { gap: 10px; }
+.sl-rank-4 .sl-rank-row { padding: 8px 22px; font-size: 24px; gap: 20px; }
+.sl-rank-4 .sl-rank-pos { font-size: 27px; min-width: 110px; }
+.sl-rank-4 .sl-rank-name { font-size: 26px; }
+.sl-rank-4 .sl-rank-total { font-size: 29px; min-width: 112px; }
+.sl-rank-5 { gap: 8px; }
+.sl-rank-5 .sl-rank-row { padding: 6px 20px; font-size: 22px; gap: 16px; border-width: 2px; }
+.sl-rank-5 .sl-rank-pos { font-size: 24px; min-width: 98px; }
+.sl-rank-5 .sl-rank-name { font-size: 23px; }
+.sl-rank-5 .sl-rank-total { font-size: 26px; min-width: 104px; }
+.sl-rank-6 { gap: 6px; }
+.sl-rank-6 .sl-rank-row { padding: 6px 18px; font-size: 20px; gap: 14px; border-width: 2px; border-radius: 11px; }
+.sl-rank-6 .sl-rank-pos { font-size: 22px; min-width: 88px; }
+.sl-rank-6 .sl-rank-name { font-size: 21px; }
+.sl-rank-6 .sl-rank-total { font-size: 24px; min-width: 96px; }
 
 /* ---------- 动画抑制 ---------- */
 

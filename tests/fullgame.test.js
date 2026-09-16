@@ -31,47 +31,42 @@ function enterMonth(state, month) {
   E.settleMonthOpening(state);
 }
 
-function playFullGame() {
+function playFullGame(companyCount = 3) {
   const state = E.createGame({
+    companyCount,
     companyNames: { A: "激进扩张", B: "均衡绿色", C: "深度低碳" },
     governmentName: "市政府",
     autoDice: false,
   });
 
-  function allChoice(month, id, optionId) {
-    E.settleCompanyChoice(state, step(month, id), {
-      A: { optionId }, B: { optionId }, C: { optionId },
-    });
+  const ids = state.companies.map(item => item.id);
+  function choices(pattern) {
+    return Object.fromEntries(ids.map((id, index) => [id, { optionId: pattern[index % pattern.length] }]));
+  }
+  function allChoice(month, id, optionPattern) {
+    E.settleCompanyChoice(state, step(month, id), choices(optionPattern));
   }
 
   /* 1 月 */
-  E.settleCompanyChoice(state, step(1, "m1-equipment"), {
-    A: { optionId: "m1-D" }, B: { optionId: "m1-B" }, C: { optionId: "m1-C" },
-  });
+  allChoice(1, "m1-equipment", ["m1-D", "m1-B", "m1-C"]);
 
   /* 2 月 */
   enterMonth(state, 2);
-  E.settleCompanyChoice(state, step(2, "m2-envelope"), {
-    A: { optionId: "m2-A" }, B: { optionId: "m2-B" }, C: { optionId: "m2-B" },
-  });
+  allChoice(2, "m2-envelope", ["m2-A", "m2-B", "m2-B"]);
   assert.ok(E.settleGovernmentPolicy(state, step(2, "m2-ecoPolicy"), "m2-plantingLight", "从轻植树").ok);
 
   /* 3 月 */
   enterMonth(state, 3);
-  E.settleCompanyChoice(state, step(3, "m3-teambuilding"), {
-    A: { optionId: "m3-B" }, B: { optionId: "m3-C" }, C: { optionId: "m3-C" },
-  });
+  allChoice(3, "m3-teambuilding", ["m3-B", "m3-C", "m3-C"]);
 
   /* 4 月 */
   enterMonth(state, 4);
   assert.ok(E.settleGovernmentPolicy(state, step(4, "m4-publicHealth"), "m4-B", "").ok);
-  E.settleDiceResults(state, step(4, "m4-dice"), { A: 1, B: 3, C: 5 });
+  E.settleDiceResults(state, step(4, "m4-dice"), Object.fromEntries(ids.map((id, index) => [id, [1, 3, 5][index % 3]])));
 
   /* 5 月 */
   enterMonth(state, 5);
-  E.settleCompanyChoice(state, step(5, "m5-pv"), {
-    A: { optionId: "m5-A" }, B: { optionId: "m5-C" }, C: { optionId: "m5-B" },
-  });
+  allChoice(5, "m5-pv", ["m5-A", "m5-C", "m5-B"]);
 
   /* 6 月 */
   enterMonth(state, 6);
@@ -79,15 +74,11 @@ function playFullGame() {
 
   /* 7 月 */
   enterMonth(state, 7);
-  E.settleCompanyChoice(state, step(7, "m7-charger"), {
-    A: { optionId: "m7-A" }, B: { optionId: "m7-B" }, C: { optionId: "m7-C" },
-  });
+  allChoice(7, "m7-charger", ["m7-A", "m7-B", "m7-C"]);
 
   /* 8 月 */
   enterMonth(state, 8);
-  E.settleCompanyChoice(state, step(8, "m8-battery"), {
-    A: { optionId: "m8-A" }, B: { optionId: "m8-B" }, C: { optionId: "m8-C" },
-  });
+  allChoice(8, "m8-battery", ["m8-A", "m8-B", "m8-C"]);
   assert.ok(E.settleGovernmentPolicy(state, step(8, "m8-ecoPolicy"), "m8-reward", "奖励领先").ok);
 
   /* 9 月 */
@@ -102,22 +93,27 @@ function playFullGame() {
 
   /* 11 月 */
   enterMonth(state, 11);
-  const decisions = {
-    A: { optionId: "m11-C" },
-    B: { optionId: "m11-B", retrofitId: "m11-R4" },
-    C: { optionId: "m11-A" },
-  };
+  const decisions = Object.fromEntries(ids.map((id, index) => [
+    id,
+    index % 3 === 0
+      ? { optionId: "m11-C" }
+      : index % 3 === 1
+        ? { optionId: "m11-B", retrofitId: "m11-R4" }
+        : { optionId: "m11-A" },
+  ]));
+  const retrofits = Object.fromEntries(ids
+    .filter((id, index) => index % 3 === 1)
+    .map(id => [id, "m11-R4"]));
   E.settleCompanyChoice(state, step(11, "m11-apply"), decisions);
-  E.settleRetrofit(state, step(11, "m11-apply"), { B: "m11-R4" });
-  E.finalizeZeroCarbon(state, decisions, { B: "m11-R4" });
-  assert.ok(E.settlePilotFunding(state, step(11, "m11-funding"), { B: 0, C: 10 }, {}).ok);
+  E.settleRetrofit(state, step(11, "m11-apply"), retrofits);
+  E.finalizeZeroCarbon(state, decisions, retrofits);
+  const funding = Object.fromEntries(ids.map((id, index) => [id, index % 3 === 2 ? 10 : 0]));
+  assert.ok(E.settlePilotFunding(state, step(11, "m11-funding"), funding, {}).ok);
   assert.ok(E.settleGovernmentPolicy(state, step(11, "m11-ecoPolicy"), "m11-plantingLight", "补生态短板").ok);
 
   /* 12 月 */
   enterMonth(state, 12);
-  E.settleCompanyChoice(state, step(12, "m12-smog"), {
-    A: { optionId: "m12-A" }, B: { optionId: "m12-B" }, C: { optionId: "m12-B" },
-  });
+  allChoice(12, "m12-smog", ["m12-A", "m12-B", "m12-B"]);
   E.settleAutoEvent(state, step(12, "m12-lowEfficiency"));
   state.finished = true;
   return state;
@@ -172,6 +168,22 @@ test("年终排名与政府目标按新口径计算", () => {
   assert.strictEqual(final.totalEcology, 202);
   assert.strictEqual(final.totalEconomy, 239);
   assert.strictEqual(final.govFinance, 58);
+});
+
+test("6 家企业全流程都能决策、计分并排名", () => {
+  const state = playFullGame(6);
+  const final = E.computeFinal(state);
+  assert.strictEqual(state.companies.map(item => item.id).join(""), "ABCDEF");
+  assert.strictEqual(final.ranking.length, 6);
+  assert.deepStrictEqual(final.ranking.map(item => item.id), ["C", "F", "E", "B", "A", "D"]);
+  assert.strictEqual(final.totalEcology, 384);
+  assert.strictEqual(final.totalEconomy, 498);
+  assert.strictEqual(final.govFinance, 96);
+  assert.strictEqual(final.goals.ecology.target, 420);
+  assert.strictEqual(final.goals.economy.target, 480);
+  assert.strictEqual(final.goals.ecology.achieved, false);
+  assert.ok(final.goals.economy.achieved);
+  assert.ok(state.companies.every(item => item.history.some(record => record.month === 12)));
 });
 
 console.log("\n== 结果：" + passed + " 通过，" + failed + " 失败 ==");

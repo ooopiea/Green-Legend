@@ -224,14 +224,52 @@
     card.appendChild(U.el("h3", { text: "《绿神话》开局设置" }));
 
     const names = {};
-    ["A", "B", "C"].forEach(id => {
+    let selectedCompanyCount = E.MIN_COMPANY_COUNT;
+    const nameRows = U.el("div", {});
+    const summary = U.el("div", { class: "rules-summary", html: "" });
+
+    function setupRulesHtml(count) {
+      const targets = E.governmentTargets(count);
+      const startingFinance = E.governmentStartingFinance(count);
+      return "<li>本局企业数量：" + count + " 家；每家初始经济 60、生态 60。</li>" +
+        "<li>政府初始财政：" + startingFinance + "（40 + 20×企业数量）。</li>" +
+        "<li>企业胜负 = 12 月后「经济值 + 生态值」总分最高。</li>" +
+        "<li>政府三目标：总生态 ≥" + targets.ecology + "、总经济 ≥" + targets.economy + "、财政 ≥0。</li>" +
+        "<li>生态 ≤20 触发滑坡额外扣 10；经济首次 ≤20 触发一次救助（企业+10 / 财政-10）。</li>" +
+        "<li>政府全年任意时点财政不得为负，不足的政策不可选。</li>" +
+        "<li>4 月停工按每企业经济 -10；11 月试点资金四档 +0/+10/+20/+40。</li>";
+    }
+
+    function renderNameInputs() {
+      const ids = E.COMPANY_ID_POOL.slice(0, selectedCompanyCount);
+      Object.keys(names).forEach(id => { delete names[id]; });
+      U.clear(nameRows);
+      ids.forEach(id => {
       const row = U.el("div", { class: "setup-row" });
       row.appendChild(U.el("label", { text: "企业 " + id + " 名称" }));
       const inp = U.el("input", { type: "text", value: "企业 " + id, "data-id": id });
       names[id] = inp;
       row.appendChild(inp);
-      card.appendChild(row);
+      nameRows.appendChild(row);
+      });
+      summary.innerHTML = setupRulesHtml(selectedCompanyCount);
+    }
+
+    const countRow = U.el("div", { class: "setup-row" });
+    countRow.appendChild(U.el("label", { text: "企业数量（3-6 家）" }));
+    const countSel = U.el("select", {});
+    for (let n = E.MIN_COMPANY_COUNT; n <= E.MAX_COMPANY_COUNT; n++) {
+      countSel.appendChild(U.el("option", { value: String(n), text: n + " 家企业" }));
+    }
+    countSel.value = String(selectedCompanyCount);
+    countSel.addEventListener("change", function () {
+      selectedCompanyCount = Number(countSel.value);
+      renderNameInputs();
     });
+    countRow.appendChild(countSel);
+    card.appendChild(countRow);
+    card.appendChild(nameRows);
+    renderNameInputs();
 
     const govRow = U.el("div", { class: "setup-row" });
     govRow.appendChild(U.el("label", { text: "政府组名称" }));
@@ -250,18 +288,18 @@
 
     card.appendChild(U.el("div", { class: "setup-row" },
       U.el("label", { text: "规则摘要（核对后开局）" }),
-      U.el("div", { class: "rules-summary", html:
-        "<li>企业初始经济 60、生态 60；政府初始财政 100。</li>" +
-        "<li>企业胜负 = 12 月后「经济值 + 生态值」总分最高。</li>" +
-        "<li>政府三目标：总生态 ≥240、总经济 ≥320、财政 ≥0。</li>" +
-        "<li>生态 ≤20 触发滑坡额外扣 10；经济首次 ≤20 触发一次救助（企业+10 / 财政-10）。</li>" +
-        "<li>政府全年任意时点财政不得为负，不足的政策不可选。</li>" +
-        "<li>4 月停工按每企业经济 -10；11 月试点资金四档 +0/+10/+20/+40。</li>" })));
+      summary));
 
     card.appendChild(U.el("div", { style: "margin-top:16px;display:flex;gap:10px" },
       U.el("button", { class: "btn-lg", text: "开 局", onclick: function () {
+        const selectedIds = E.COMPANY_ID_POOL.slice(0, selectedCompanyCount);
+        const selectedNames = {};
+        selectedIds.forEach(id => {
+          selectedNames[id] = names[id].value.trim() || ("企业 " + id);
+        });
         ControlConsole.state = E.createGame({
-          companyNames: { A: names.A.value.trim() || "企业 A", B: names.B.value.trim() || "企业 B", C: names.C.value.trim() || "企业 C" },
+          companyCount: selectedCompanyCount,
+          companyNames: selectedNames,
           governmentName: govInput.value.trim() || "政府",
           autoDice: diceSel.value === "auto",
         });
@@ -405,8 +443,8 @@
   /* ---------- 企业选择 ---------- */
 
   function buildCompanyChoice(state, step) {
-    const card = U.el("div", { class: "card" });
-    card.appendChild(U.el("h4", { text: "企业决策录入（三家全部录入后统一揭示）" }));
+    const card = U.el("div", { class: "card company-choice" });
+    card.appendChild(U.el("h4", { text: "企业决策录入（" + state.companies.length + "家全部录入后统一揭示）" }));
 
     const grid = U.el("div", { class: "stash-grid" });
     state.companies.forEach(c => {
@@ -879,21 +917,21 @@
 
   function buildAwardPanel(state, step) {
     const card = U.el("div", { class: "card" });
-    card.appendChild(U.el("h4", { text: "年终颁奖（3 个奖项，不改分值）" }));
+    card.appendChild(U.el("h4", { text: "年终颁奖（每家企业 1 个奖项，不改分值）" }));
     const rows = [];
-    for (let i = 0; i < 3; i++) {
-      const row = U.el("div", { class: "award-row" });
+    state.companies.forEach(company => {
+      const row = U.el("div", { class: "award-row company-award" });
+      row.appendChild(U.el("div", { class: "award-company", text: company.name }));
       const nameInp = U.el("input", { type: "text", placeholder: "奖项名称（如：绿色先锋奖）" });
-      const compSel = U.el("select", {}, state.companies.map(c => U.el("option", { value: c.id, text: c.name })));
       const reasonInp = U.el("input", { type: "text", placeholder: "获奖理由" });
-      row.appendChild(nameInp); row.appendChild(compSel); row.appendChild(reasonInp);
+      row.appendChild(nameInp); row.appendChild(reasonInp);
       card.appendChild(row);
-      rows.push({ nameInp, compSel, reasonInp });
-    }
+      rows.push({ companyId: company.id, nameInp, reasonInp });
+    });
     card.appendChild(U.el("button", { class: "btn-lg btn-gold", text: "🏆 完成颁奖，查看年终结算 ▸", onclick: function () {
       state.government.awards = rows.map(r => ({
         name: r.nameInp.value.trim() || "未命名奖",
-        companyId: r.compSel.value,
+        companyId: r.companyId,
         reason: r.reasonInp.value.trim(),
       }));
       E.log(state, "government", "年终颁奖：" + state.government.awards.map(a => "「" + a.name + "」→ " + E.getCompany(state, a.companyId).name).join("，"));
@@ -931,9 +969,9 @@
     card.appendChild(U.el("h4", { text: "政府治理目标" }));
     const goals = U.el("div", {});
     goals.appendChild(U.el("span", { class: "goal-chip " + (fin.goals.ecology.achieved ? "ok" : "bad"),
-      text: (fin.goals.ecology.achieved ? "✔" : "✘") + " 全社会生态 " + E.fmtNumber(fin.totalEcology) + " / 240" }));
+      text: (fin.goals.ecology.achieved ? "✔" : "✘") + " 全社会生态 " + E.fmtNumber(fin.totalEcology) + " / " + fin.goals.ecology.target }));
     goals.appendChild(U.el("span", { class: "goal-chip " + (fin.goals.economy.achieved ? "ok" : "bad"),
-      text: (fin.goals.economy.achieved ? "✔" : "✘") + " 全社会经济 " + E.fmtNumber(fin.totalEconomy) + " / 320" }));
+      text: (fin.goals.economy.achieved ? "✔" : "✘") + " 全社会经济 " + E.fmtNumber(fin.totalEconomy) + " / " + fin.goals.economy.target }));
     goals.appendChild(U.el("span", { class: "goal-chip " + (fin.goals.finance.achieved ? "ok" : "bad"),
       text: (fin.goals.finance.achieved ? "✔" : "✘") + " 财政 " + fin.govFinance + " / ≥0" }));
     card.appendChild(goals);

@@ -201,6 +201,13 @@
     return cell;
   }
 
+  /* 5-6 家企业时状态标签进入紧凑带，避免折行后遮挡答案卡 */
+  function chipsShell(count, modifier) {
+    const total = Math.max(3, Math.min(6, Number(count) || 0));
+    const cls = ["sl-chips", modifier || "", total >= 5 ? "dense" : ""].filter(Boolean).join(" ");
+    return el("div", { class: cls });
+  }
+
   function iconNum(icon, val, lit, badge) {
     return el("span", { class: "sl-cell" },
       img(icon, "sl-ic"),
@@ -234,7 +241,7 @@
       case "campCompany": buildCampCompany(canvas); break;
       case "metricTwo": buildMetricTwo(canvas); break;
       case "campGov": buildCampGov(canvas); break;
-      case "metricAll": buildMetricAll(canvas); break;
+      case "metricAll": buildMetricAll(canvas, state); break;
       case "flowBody": buildFlowBody(canvas); break;
       case "flow": buildFlow(canvas); break;
       case "q": buildQuestion(canvas, stepInfo, state, atStep, revealed); break;
@@ -279,7 +286,7 @@
   function buildRules(canvas) {
     const body = el("div", { class: "sl-body-wide" });
     rich(body,
-      "欢迎进入角色扮演策略挑战！你们将被分成 4 组：一组担任【政府】的掌舵者，另外三组为【企业】的决策者。通过【集体讨论和投票】，每组将做出至关重要的决策。注意！每次事件的讨论时间仅为【60 秒】，时间紧迫，务必快速做出明智的选择！");
+      "欢迎进入角色扮演策略挑战！你们将被分成 4-7 组：一组担任【政府】的掌舵者，另外 3-6 组为【企业】的决策者。通过【集体讨论和投票】，每组将做出至关重要的决策。注意！每次事件的讨论时间仅为【60 秒】，时间紧迫，务必快速做出明智的选择！");
     canvas.appendChild(sectionTitle("创设意象是什么？", "游戏规则"));
     canvas.appendChild(body);
   }
@@ -319,28 +326,50 @@
     canvas.appendChild(img("gov-decor.png", "sl-img", "right:40px;top:120px;width:560px;opacity:.92;"));
   }
 
-  function buildMetricAll(canvas) {
+  function buildMetricAll(canvas, state) {
     canvas.appendChild(sectionTitle(null, "指标"));
     const eco = el("div", { class: "sl-mcard" },
       el("img", { class: "sl-micon", src: "assets/metric-eco.png", alt: "" }),
       el("div", { class: "sl-mname font-serif", text: "生态" }));
-    rich(eco, "全社会初始值：60×3=180。政府的目的是将最终全社会的总生态值改善到【240】以上！");
+    const count = state && state.companies ? (state.companyCount || state.companies.length) : 0;
+    const metricRules = governmentRulesFor(count);
+    const ecoText = count
+      ? "全社会初始值：60×" + count + "=" + count * 60 + "。政府的目的是将最终全社会的总生态值改善到【" + metricRules.targets.ecology + "】以上！"
+      : "全社会初始值：60×企业数量。政府的目的是将最终全社会的总生态值改善到【210-420】以上！";
+    rich(eco, ecoText);
     const econ = el("div", { class: "sl-mcard" },
       el("img", { class: "sl-micon", src: "assets/metric-econ.png", alt: "" }),
       el("div", { class: "sl-mname font-serif", text: "经济" }));
-    rich(econ, "全社会初始值：60×3=180。政府的目的是促进经济发展，将最终全社会的总经济值提升到【320】以上！");
+    const econText = count
+      ? "全社会初始值：60×" + count + "=" + count * 60 + "。政府的目的是促进经济发展，将最终全社会的总经济值提升到【" + metricRules.targets.economy + "】以上！"
+      : "全社会初始值：60×企业数量。政府的目的是促进经济发展，将最终全社会的总经济值提升到【240-480】以上！";
+    rich(econ, econText);
     const fin = el("div", { class: "sl-mcard" },
       el("img", { class: "sl-micon", src: "assets/metric-finance.png", alt: "" }),
       el("div", { class: "sl-mname font-serif", text: "财政" }));
-    rich(fin, "初始值：100。政府的目的是在全年合理分配财政支出！");
+    rich(fin, count
+      ? "初始财政：" + metricRules.startingFinance + "（40 + 20×" + count + "）。政府的目的是在全年合理分配财政支出！"
+      : "初始财政：100-160，随企业数量调整。政府的目的是在全年合理分配财政支出！");
     canvas.appendChild(el("div", { class: "sl-mcards3" }, eco, econ, fin));
     canvas.appendChild(img("logo.png", "sl-logo-sm", "right:30px;bottom:22px;"));
+  }
+
+  function governmentRulesFor(companyCount) {
+    const engine = typeof GreenEngine !== "undefined" ? GreenEngine : null;
+    return {
+      targets: engine && engine.governmentTargets
+        ? engine.governmentTargets(companyCount)
+        : { ecology: 70 * companyCount, economy: 80 * companyCount },
+      startingFinance: engine && engine.governmentStartingFinance
+        ? engine.governmentStartingFinance(companyCount)
+        : 40 + 20 * companyCount
+    };
   }
 
   function buildFlowBody(canvas) {
     const body = el("div", { class: "sl-body-wide sl-flowbody" });
     rich(body,
-      "游戏周期为 12 个月，每个月企业都会面临一个决策问题，企业做出的不同选择将产生不同的【生态值】和【经济值】变化。政府在特定环节根据各企业表现制定【惩罚】或【奖励】政策。　一年结束后，请政府设计 3 个奖项，为各个企业颁奖，各企业发表获奖感言。　祝大家都能扮演好自己的角色，体验双碳背景下企业与政府的抉择过程，游戏愉快！");
+      "游戏周期为 12 个月，每个月企业都会面临一个决策问题，企业做出的不同选择将产生不同的【生态值】和【经济值】变化。政府在特定环节根据各企业表现制定【惩罚】或【奖励】政策。　一年结束后，请政府为每家企业设计 1 个专属奖项并颁奖，各企业发表获奖感言。　祝大家都能扮演好自己的角色，体验双碳背景下企业与政府的抉择过程，游戏愉快！");
     canvas.appendChild(body);
   }
 
@@ -348,7 +377,7 @@
     canvas.appendChild(sectionTitle("创设意象是什么？", "流程"));
     const body = el("div", { class: "sl-body-wide" });
     rich(body,
-      "欢迎进入角色扮演策略挑战！你们将被分成 4 组：一组担任【政府】的掌舵者，另外三组为【企业】的决策者。通过【集体讨论和投票】，每组将做出至关重要的决策。注意！每次事件的讨论时间仅为【60 秒】，时间紧迫，务必快速做出明智的选择！");
+      "欢迎进入角色扮演策略挑战！你们将被分成 4-7 组：一组担任【政府】的掌舵者，另外 3-6 组为【企业】的决策者。通过【集体讨论和投票】，每组将做出至关重要的决策。注意！每次事件的讨论时间仅为【60 秒】，时间紧迫，务必快速做出明智的选择！");
     canvas.appendChild(body);
   }
 
@@ -394,7 +423,7 @@
 
     /* 提交状态芯片：不泄选择 */
     if (state && atStep && !revealed) {
-      const chips = el("div", { class: "sl-chips" });
+      const chips = chipsShell(state.companies.length + 1);
       state.companies.forEach(function (c) {
         const done = !!(state.pendingDecisions && state.pendingDecisions[c.id]);
         chips.appendChild(el("span", { class: "sl-chip" + (done ? " on" : ""), text: c.name + " · " + (done ? "已提交" : "待提交") }));
@@ -586,10 +615,12 @@
   function diceChips(state, eventId, month) {
     const list = (state && state.dice || []).filter(function (d) { return d.eventId === eventId && d.month === month; });
     if (!list.length) return null;
-    return el("div", { class: "sl-chips dice" }, list.map(function (d) {
+    const chips = chipsShell(list.length, "dice");
+    list.forEach(function (d) {
       const c = state.companies.find(function (x) { return x.id === d.companyId; });
-      return el("span", { class: "sl-chip on", text: (c ? c.name : d.companyId) + " ⚂" + d.face + " → " + d.outcome });
-    }));
+      chips.appendChild(el("span", { class: "sl-chip on", text: (c ? c.name : d.companyId) + " ⚂" + d.face + " → " + d.outcome }));
+    });
+    return chips;
   }
 
   function buildM4Answer(canvas, stepInfo, state, atStep, settled) {
@@ -748,7 +779,7 @@
           el("span", { class: "sl-orb" }, iconNum("metric-econ-sm.png", 5, settled, false), el("span", { class: "sl-orb-txt", text: "经济（可叠加 +10）" }))))));
 
     if (state && settled) {
-      const chips = el("div", { class: "sl-chips" });
+      const chips = chipsShell(state.companies.length);
       state.companies.forEach(function (c) {
         const pv = c.assets.rooftopPV;
         const st = c.assets.battery || c.assets.twoWayCharger;
@@ -781,7 +812,7 @@
           el("span", { class: "sl-orb" }, iconNum("metric-econ-sm.png", -3, settled, true), el("span", { class: "sl-orb-txt", text: "每月经济，直至 12 月" }))))));
 
     if (state && settled) {
-      const chips = el("div", { class: "sl-chips" });
+      const chips = chipsShell(state.companies.length);
       state.companies.forEach(function (c) {
         const has = c.assets.oneWayCharger || c.assets.twoWayCharger;
         chips.appendChild(el("span", { class: "sl-chip" + (has ? " on" : " warn") },
@@ -805,7 +836,7 @@
 
     /* 申报意图 */
     if (lit) {
-      const chips = el("div", { class: "sl-chips" });
+      const chips = chipsShell(state.companies.length);
       state.companies.forEach(function (c) {
         const d = state.pendingDecisions && state.pendingDecisions[c.id];
         const label = d && d.optionId === "m11-A" ? "直接申报" : d && d.optionId === "m11-B" ? "加装后申报" : "观望";
@@ -858,7 +889,7 @@
     /* 资格行：紧贴题面之下 */
     const apps = state && state.zeroCarbonApplications;
     if (state && apps) {
-      const list = el("div", { class: "sl-chips fund" });
+      const list = chipsShell(state.companies.length, "fund");
       state.companies.forEach(function (c) {
         const a = apps[c.id] || {};
         let txt = c.name + "：", cls = "";
@@ -888,10 +919,6 @@
      ============================================================ */
 
   function buildFinal(canvas, state) {
-    canvas.appendChild(el("div", { class: "sl-finalhead" },
-      el("div", { class: "sl-big-title font-serif", text: "一年结束" }),
-      el("div", { class: "sl-award-title font-serif", text: "政府颁奖环节" })));
-
     if (!state || !state.companies) return;
     const ranked = state.companies.map(function (c) {
       return { name: c.name, economy: c.economy, ecology: c.ecology, total: c.economy + c.ecology };
@@ -899,11 +926,21 @@
     const totalEco = state.companies.reduce(function (s, c) { return s + c.ecology; }, 0);
     const totalEcon = state.companies.reduce(function (s, c) { return s + c.economy; }, 0);
     const fin = state.government.finance;
+    const companyCount = state.companyCount || state.companies.length;
+    const slideRules = governmentRulesFor(companyCount);
+    const ecologyTarget = slideRules.targets.ecology;
+    const economyTarget = slideRules.targets.economy;
+    const rankLabels = ["第一名", "第二名", "第三名", "第四名", "第五名", "第六名"];
 
-    const rk = el("div", { class: "sl-rank" });
+    canvas.classList.add("sl-final", "sl-final-" + companyCount);
+    canvas.appendChild(el("div", { class: "sl-finalhead sl-finalhead-" + companyCount },
+      el("div", { class: "sl-big-title font-serif", text: "一年结束" }),
+      el("div", { class: "sl-award-title font-serif", text: "政府颁奖环节" })));
+
+    const rk = el("div", { class: "sl-rank sl-rank-" + ranked.length });
     ranked.forEach(function (r, i) {
       rk.appendChild(el("div", { class: "sl-rank-row" + (i === 0 ? " first" : "") },
-        el("span", { class: "sl-rank-pos font-serif", text: ["第一名", "第二名", "第三名"][i] }),
+        el("span", { class: "sl-rank-pos font-serif", text: rankLabels[i] }),
         el("span", { class: "sl-rank-name", text: r.name }),
         el("span", { class: "sl-rank-vals num", text: "经济 " + fmtNumber(r.economy) + " · 生态 " + fmtNumber(r.ecology) }),
         el("span", { class: "sl-rank-total num", text: fmtNumber(r.total) + " 分" })));
@@ -911,13 +948,13 @@
     canvas.appendChild(rk);
 
     canvas.appendChild(el("div", { class: "sl-goals" },
-      goalChip("全社会生态≥240：", fmtNumber(totalEco), totalEco >= 240),
-      goalChip("全社会经济≥320：", fmtNumber(totalEcon), totalEcon >= 320),
+      goalChip("全社会生态≥" + ecologyTarget + "：", fmtNumber(totalEco), totalEco >= ecologyTarget),
+      goalChip("全社会经济≥" + economyTarget + "：", fmtNumber(totalEcon), totalEcon >= economyTarget),
       goalChip("财政不为负：", fmtNumber(fin), fin >= 0)));
 
     const awards = state.government.awards || [];
     if (awards.length) {
-      const list = el("div", { class: "sl-awards" });
+      const list = el("div", { class: "sl-awards sl-awards-" + awards.length });
       awards.forEach(function (a) {
         const c = state.companies.find(function (x) { return x.id === a.companyId; });
         list.appendChild(el("div", { class: "sl-award" },
